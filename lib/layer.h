@@ -1,6 +1,7 @@
 #pragma once
 
 #include <glib.h>
+#include <CL/opencl.h>
 
 enum layer_type
 {

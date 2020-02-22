@@ -8,6 +8,7 @@ source = [
 
 dependencies = [
   glib_dep,
+  opencl_dep,
 ]
 
 libgann = shared_library(
