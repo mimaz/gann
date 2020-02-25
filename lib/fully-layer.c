@@ -6,23 +6,26 @@ static void backward (struct layer *lay);
 static void release (struct layer *lay);
 
 struct layer *
-layer_make_input (struct network *net,
-                  int width, int height, int depth)
+layer_make_full (struct network *net,
+                 int width, int height, int depth)
 {
-    struct layer *base;
-    int size;
-
-    size = width * width * depth;
+    struct layer *base, *prev;
+    int insize, outsize;
 
     base = g_new0 (struct layer, 1);
+    prev = network_layer_last (net);
+
+    insize = prev->width * prev->height * prev->depth;
+    outsize = width * height * depth;
+
     base->net = net;
-    base->type = LAYER_INPUT;
-    base->weight_v = NULL;
-    base->value_v = g_new (float, size);
-    base->bias_v = NULL;
-    base->weight_c = 0;
-    base->value_c = size;
-    base->bias_c = 0;
+    base->type = LAYER_FULLY;
+    base->weight_v = g_new (float, insize * outsize);
+    base->value_v = g_new (float, outsize);
+    base->bias_v = g_new (float, outsize);
+    base->weight_c = insize * outsize;
+    base->value_c = outsize;
+    base->bias_c = outsize;
     base->width = width;
     base->height = height;
     base->depth = depth;
@@ -38,18 +41,16 @@ layer_make_input (struct network *net,
 static void
 forward (struct layer *lay)
 {
-    g_assert (lay->net->input_c == lay->value_c);
-    memcpy (lay->value_v, lay->net->input_v, sizeof (float) * lay->value_c);
-    network_set_data (lay->net, lay->value_v, lay->value_c);
 }
 
-static void
+static void 
 backward (struct layer *lay)
 {
 }
 
-static void
+static void 
 release (struct layer *lay)
 {
+    g_clear_pointer (&lay->weight_v, g_free);
     g_clear_pointer (&lay->value_v, g_free);
 }

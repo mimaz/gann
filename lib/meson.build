@@ -4,11 +4,11 @@ source = [
   'convolution-layer.c',
   'activation-layer.c',
   'input-layer.c',
+  'fully-layer.c',
 ]
 
 dependencies = [
   glib_dep,
-  opencl_dep,
 ]
 
 libgann = shared_library(

@@ -6,11 +6,11 @@ struct layer;
 
 struct network
 {
-  GPtrArray *layers;
-  float *input;
-  float *data;
-  int input_size;
-  int data_size;
+    GPtrArray *layers;
+    float *input_v;
+    float *data_v;
+    int input_c;
+    int data_c;
 };
 
 struct network *network_make_empty ();
