@@ -1,8 +1,9 @@
 project('gann', 'c')
 
+cc = meson.get_compiler('c')
+
 glib_dep = dependency('glib-2.0')
-opencl_dep = declare_dependency(link_args: '-lOpenCL')
-#opencl_dep = dependency('OpenCL')
+math_dep = cc.find_library('m')
 
 subdir('lib/')
 subdir('bin/')

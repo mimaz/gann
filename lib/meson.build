@@ -9,6 +9,7 @@ source = [
 
 dependencies = [
   glib_dep,
+  math_dep,
 ]
 
 libgann = shared_library(

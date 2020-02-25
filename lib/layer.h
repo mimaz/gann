@@ -17,6 +17,7 @@ enum activation_type
     ACTIVATION_NONE,
     ACTIVATION_LINEAR,
     ACTIVATION_RELU,
+    ACTIVATION_SIGMOID,
     N_ACTIVATIONS,
 };
 

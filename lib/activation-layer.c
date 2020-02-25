@@ -1,6 +1,8 @@
 #include "layer.h"
 #include "network.h"
 
+#include <math.h>
+
 struct activation_layer
 {
     struct layer base;
@@ -48,36 +50,40 @@ layer_make_activation (struct network *net,
 }
 
 static void
-forward_linear (const float *in, float *out, int size)
-{
-}
-
-static void
-forward_relu (const float *in, float *out, int size)
-{
-}
-
-static void
 forward (struct layer *lay)
 {
-    static const void (*forward_v[]) (const float *, float *, int) = {
-        [ACTIVATION_NONE] = forward_linear,
-        [ACTIVATION_LINEAR] = forward_linear,
-        [ACTIVATION_RELU] = forward_relu,
-    };
+    struct activation_layer *act;
+    float in, out;
+    int i;
 
-    struct activation_layer *acti;
-    void (*forward_f) (const float *, float *, int);
+    act = (struct activation_layer *) lay;
 
     g_assert (lay->net->input_c == lay->value_c);
-    g_assert (lay->type == LAYER_ACTIVATION);
 
-    acti = (struct activation_layer *) lay;
-    g_assert (acti->activation < N_ACTIVATIONS);
+    for (i = 0; i < lay->value_c; i++) {
+        in = lay->net->input_v[i];
 
-    forward_f = forward_v[acti->activation];
-    g_assert (forward_f != NULL);
-    forward_f (lay->net->input_v, lay->value_v, lay->value_c);
+        switch (act->activation) {
+        case ACTIVATION_NONE:
+        case ACTIVATION_LINEAR:
+            out = in;
+            break;
+
+        case ACTIVATION_RELU:
+            out = MAX (0, in);
+            break;
+
+        case ACTIVATION_SIGMOID:
+            out = 1.0f / (1.0f + expf (-in));
+            break;
+
+        default:
+            g_abort ();
+            break;
+        }
+
+        lay->value_v[i] = out;
+    }
 
     network_set_data (lay->net, lay->value_v, lay->value_c);
 }

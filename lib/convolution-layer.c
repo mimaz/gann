@@ -21,7 +21,7 @@ layer_make_convolution (struct network *net,
     struct layer *base, *prev;
     int width, height, depth, karea, weightc, size;
 
-    conv = g_new (struct convolution_layer, 1);
+    conv = g_new0 (struct convolution_layer, 1);
     base = (struct layer *) conv;
 
     prev = network_layer_last (net);
@@ -71,4 +71,5 @@ release (struct layer *lay)
 {
     g_clear_pointer (&lay->weight_v, g_free);
     g_clear_pointer (&lay->value_v, g_free);
+    g_clear_pointer (&lay->bias_v, g_free);
 }
