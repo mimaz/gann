@@ -4,6 +4,7 @@
 static void forward (struct layer *lay);
 static void backward (struct layer *lay);
 static void release (struct layer *lay);
+static void loss (struct layer *lay);
 
 struct fully_layer
 {
@@ -32,7 +33,7 @@ layer_make_full (struct network *net,
     base->type = LAYER_FULLY;
     base->weight_v = g_new (float, (insize + 1) * outsize);
     base->value_v = g_new (float, outsize);
-    base->weight_c = insize * outsize;
+    base->weight_c = (insize + 1) * outsize;
     base->value_c = outsize;
     base->width = width;
     base->height = height;
@@ -41,6 +42,7 @@ layer_make_full (struct network *net,
     base->forward = forward;
     base->backward = backward;
     base->release = release;
+    base->loss = loss;
 
     fully->insize = insize;
     fully->outsize = outsize;
@@ -54,19 +56,19 @@ static void
 forward (struct layer *lay)
 {
     struct fully_layer *fully;
-    const float *input_p, *input_e, *weight_p;
+    const float *input_p, *input_e, *weight_p, *weight_e;
     float sum, *value_p, *value_e;
 
     fully = (struct fully_layer *) lay;
+    g_assert (fully->insize == lay->net->input_c);
 
     weight_p = lay->weight_v;
+    weight_e = weight_p + lay->weight_c;
 
     value_p = lay->value_v;
     value_e = value_p + lay->value_c;
 
     input_e = lay->net->input_v + lay->net->input_c;
-
-    g_assert (fully->insize == lay->net->input_c);
 
     while (value_p < value_e) {
         input_p = lay->net->input_v;
@@ -77,7 +79,9 @@ forward (struct layer *lay)
             sum += *weight_p++ * *input_p++;
         }
 
-        *value_p++ = sum;
+        g_assert (weight_p <= weight_e);
+
+        activation_value (lay->activation, sum, value_p++, NULL);
     }
 
     layer_activate (lay);
@@ -92,4 +96,22 @@ backward (struct layer *lay)
 static void 
 release (struct layer *lay)
 {
+}
+
+static void
+loss (struct layer *lay)
+{
+    float sum, sub;
+    int i;
+
+    g_assert (lay->value_c == lay->net->truth_c);
+
+    sum = 0;
+
+    for (i = 0; i < lay->value_c; i++) {
+        sub = lay->net->truth_v[i] - lay->value_v[i];
+        sum += sub * sub;
+    }
+
+    lay->net->loss = -sqrtf (sum);
 }

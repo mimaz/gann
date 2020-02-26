@@ -11,6 +11,9 @@ struct network
     float *data_v;
     int input_c;
     int data_c;
+    float *truth_v;
+    int truth_c;
+    float loss;
 };
 
 struct network *network_make_empty ();
@@ -19,5 +22,7 @@ struct layer *network_layer_last (struct network *net);
 int network_layer_count (struct network *net);
 void network_push_layer (struct network *net, struct layer *lay);
 void network_set_data (struct network *net, float *values, int size);
+void network_set_truth (struct network *net, float *values, int size);
 void network_forward (struct network *net);
 void network_backward (struct network *net);
+void network_randomize (struct network *net);

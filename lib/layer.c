@@ -1,17 +1,23 @@
 #include "layer.h"
+#include "network.h"
 
 #include <math.h>
 
 void
 layer_forward (struct layer *lay)
 {
-  lay->forward (lay);
+    g_message ("forward");
+    for (int i = 0; i < lay->net->input_c; i++)
+        g_message ("input %d: %f", i, lay->net->input_v[i]);
+    for (int i = 0; i < lay->weight_c; i++)
+        g_message ("weights %d: %f", i, lay->weight_v[i]);
+    lay->forward (lay);
 }
 
 void
 layer_backward (struct layer *lay)
 {
-  lay->backward (lay);
+    lay->backward (lay);
 }
 
 void
@@ -57,4 +63,14 @@ layer_free (struct layer *lay)
     g_clear_pointer (&lay->value_v, g_free);
 
     g_free (lay);
+}
+
+void
+layer_randomize (struct layer *lay)
+{
+    int i;
+
+    for (i = 0; i < lay->weight_c; i++) {
+        lay->weight_v[i] = (rand () % 1000) / 999.0f;
+    }
 }
