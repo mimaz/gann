@@ -14,6 +14,7 @@ struct fully_layer
 
 struct layer *
 layer_make_full (struct network *net,
+                 enum activation_type activation,
                  int width, int height, int depth)
 {
     struct fully_layer *fully;
@@ -29,15 +30,14 @@ layer_make_full (struct network *net,
 
     base->net = net;
     base->type = LAYER_FULLY;
-    base->weight_v = g_new (float, insize * outsize);
+    base->weight_v = g_new (float, (insize + 1) * outsize);
     base->value_v = g_new (float, outsize);
-    base->bias_v = g_new (float, outsize);
     base->weight_c = insize * outsize;
     base->value_c = outsize;
-    base->bias_c = outsize;
     base->width = width;
     base->height = height;
     base->depth = depth;
+    base->activation = activation;
     base->forward = forward;
     base->backward = backward;
     base->release = release;
@@ -54,25 +54,33 @@ static void
 forward (struct layer *lay)
 {
     struct fully_layer *fully;
-    int x, y;
-    float sum;
-    const float *input;
+    const float *input_p, *input_e, *weight_p;
+    float sum, *value_p, *value_e;
 
     fully = (struct fully_layer *) lay;
-    input = lay->net->input_v;
+
+    weight_p = lay->weight_v;
+
+    value_p = lay->value_v;
+    value_e = value_p + lay->value_c;
+
+    input_e = lay->net->input_v + lay->net->input_c;
 
     g_assert (fully->insize == lay->net->input_c);
 
-    for (y = 0; y < fully->outsize; y++) {
-        sum = lay->bias_v[y];
+    while (value_p < value_e) {
+        input_p = lay->net->input_v;
 
-        for (x = 0; x < fully->insize; x++) {
-            sum += lay->weight_v[y * fully->outsize + x] * input[x];
+        sum = *weight_p++;
+
+        while (input_p < input_e) {
+            sum += *weight_p++ * *input_p++;
         }
 
-        lay->value_v[y] = sum;
+        *value_p++ = sum;
     }
 
+    layer_activate (lay);
     network_set_data (lay->net, lay->value_v, lay->value_c);
 }
 
@@ -84,7 +92,4 @@ backward (struct layer *lay)
 static void 
 release (struct layer *lay)
 {
-    g_clear_pointer (&lay->weight_v, g_free);
-    g_clear_pointer (&lay->value_v, g_free);
-    g_clear_pointer (&lay->bias_v, g_free);
 }
