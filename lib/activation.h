@@ -7,11 +7,12 @@
 
 enum activation_type
 {
-    ACTIVATION_NONE,
     ACTIVATION_LINEAR,
     ACTIVATION_RELU,
     ACTIVATION_SIGMOID,
     ACTIVATION_LEAKY,
+    ACTIVATION_ELU,
+    ACTIVATION_STEP,
     N_ACTIVATIONS,
 };
 
@@ -19,7 +20,6 @@ static inline float activation_value (enum activation_type type,
                                       float input)
 {
     switch (type) {
-    case ACTIVATION_NONE:
     case ACTIVATION_LINEAR:
         return input;
 
@@ -32,6 +32,12 @@ static inline float activation_value (enum activation_type type,
     case ACTIVATION_LEAKY:
         return input > 0 ? input : (input * LEAKY_ALPHA);
 
+    case ACTIVATION_ELU:
+        return input > 0 ? input : (expf (input) - 1);
+
+    case ACTIVATION_STEP:
+        return input > 0 ? 1 : 0;
+
     default:
         g_abort ();
     }
@@ -41,7 +47,6 @@ static inline float activation_derivative (enum activation_type type,
                                            float value)
 {
     switch (type) {
-    case ACTIVATION_NONE:
     case ACTIVATION_LINEAR:
         return 1;
 
@@ -53,6 +58,12 @@ static inline float activation_derivative (enum activation_type type,
 
     case ACTIVATION_LEAKY:
         return value > 0 ? 1 : LEAKY_ALPHA;
+
+    case ACTIVATION_ELU:
+        return value > 0 ? 1 : (value + 1);
+
+    case ACTIVATION_STEP:
+        return 0;
 
     default:
         g_abort ();

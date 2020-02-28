@@ -9,21 +9,23 @@ layer_make_input (struct network *net,
                   int width, int height, int depth)
 {
     struct layer *base;
+    int size;
 
     base = g_new0 (struct layer, 1);
+    size = width * height * depth;
 
     base->net = net;
     base->type = LAYER_INPUT;
-    base->value_v = g_new (float, width * height * depth);
-    base->gradient_v = g_new (float, width * height * depth);
+    base->activation = ACTIVATION_LINEAR;
+    base->value_v = g_new (float, size);
+    base->gradient_v = g_new (float, size);
     base->weight_v = NULL;
     base->delta_v = NULL;
-    base->value_c = width * height * depth;
-    base->weight_c = 0;
     base->width = width;
     base->height = height;
     base->depth = depth;
-    base->activation = ACTIVATION_NONE;
+    base->size = size;
+    base->weights = 0;
     base->forward = forward;
     base->backward = backward;
     base->release = NULL;
@@ -36,9 +38,9 @@ layer_make_input (struct network *net,
 static void
 forward (struct layer *lay)
 {
-    g_assert (lay->net->input_c == lay->value_c);
-    memcpy (lay->value_v, lay->net->input_v, lay->value_c * sizeof (float));
-    network_set_data (lay->net, lay->value_v, lay->value_c);
+    g_assert (lay->net->input_c == lay->size);
+    memcpy (lay->value_v, lay->net->input_v, lay->size * sizeof (float));
+    network_set_data (lay->net, lay->value_v, lay->size);
 }
 
 static void

@@ -5,50 +5,44 @@ static void forward (struct layer *lay);
 static void backward (struct layer *lay);
 static void release (struct layer *lay);
 static void loss (struct layer *lay);
-
-struct fully_layer
-{
-    struct layer base;
-    int insize;
-    int outsize;
-};
+static void initialize (struct layer *lay);
 
 struct layer *
 layer_make_full (struct network *net,
                  enum activation_type activation,
                  int width, int height, int depth)
 {
-    struct fully_layer *fully;
     struct layer *base, *prev;
-    int insize, outsize;
+    int size, weights;
 
-    fully = g_new0 (struct fully_layer, 1);
-    base = (struct layer *) fully;
+    base = g_new0 (struct layer, 1);
     prev = network_layer_last (net);
 
-    insize = prev->width * prev->height * prev->depth;
-    outsize = width * height * depth;
+    size = width * height * depth;
+    weights = (prev->size + 1) * size;
 
     base->net = net;
     base->prev = prev;
     base->type = LAYER_FULLY;
-    base->value_v = g_new (float, outsize);
-    base->gradient_v = g_new (float, outsize);
-    base->weight_v = g_new (float, (insize + 1) * outsize);
-    base->delta_v = g_new (float, (insize + 1) * outsize);
-    base->value_c = outsize;
-    base->weight_c = (insize + 1) * outsize;
+    base->activation = activation;
+
+    base->value_v = g_new (float, size);
+    base->gradient_v = g_new (float, size);
+
+    base->weight_v = g_new (float, weights);
+    base->delta_v = g_new (float, weights);
+
     base->width = width;
     base->height = height;
     base->depth = depth;
-    base->activation = activation;
+    base->size = size;
+    base->weights = weights;
+
     base->forward = forward;
     base->backward = backward;
     base->release = release;
     base->loss = loss;
-
-    fully->insize = insize;
-    fully->outsize = outsize;
+    base->initialize = initialize;
 
     network_push_layer (net, base);
 
@@ -58,63 +52,61 @@ layer_make_full (struct network *net,
 static void
 forward (struct layer *lay)
 {
-    struct fully_layer *fully;
-    const float *input_p, *input_e, *weight_p;
-    float sum, *value_p, *value_e;
+    const float *input_p, *weight_p;
+    float sum, *value_p;
 
-    fully = (struct fully_layer *) lay;
-    g_assert (fully->insize == lay->net->input_c);
+    g_assert (lay->prev->size == lay->net->input_c);
 
     weight_p = lay->weight_v;
-
     value_p = lay->value_v;
-    value_e = value_p + lay->value_c;
 
-    input_e = lay->net->input_v + lay->net->input_c;
-
-    while (value_p < value_e) {
+    while (value_p < lay->value_v + lay->size) {
         input_p = lay->net->input_v;
 
         sum = *weight_p++;
 
-        while (input_p < input_e) {
+        while (input_p < lay->net->input_v + lay->net->input_c) {
             sum += *weight_p++ * *input_p++;
         }
 
         *value_p++ = activation_value (lay->activation, sum);
     }
 
-    g_assert (weight_p == lay->weight_v + lay->weight_c);
+    g_assert (weight_p == lay->weight_v + lay->weights);
 
-    network_set_data (lay->net, lay->value_v, lay->value_c);
+    network_set_data (lay->net, lay->value_v, lay->size);
 }
 
 static void
 backward (struct layer *lay)
 {
+    struct network *net;
     float grad, der, *delta_p, *weight_p;
     int i, j;
 
+    net = lay->net;
     weight_p = lay->weight_v;
     delta_p = lay->delta_v;
 
-    for (j = 0; j < lay->prev->value_c; j++) {
+    for (j = 0; j < lay->prev->size; j++) {
         lay->prev->gradient_v[j] = 0;
     }
 
-    for (i = 0; i < lay->value_c; i++) {
+    for (i = 0; i < lay->size; i++) {
         /* bias */
         grad = lay->gradient_v[i];
 
-        *delta_p = *delta_p * 0.99f + grad * 0.001f;
+        *delta_p = *delta_p * net->momentum + grad * net->rate;
         *weight_p += *delta_p;
 
         delta_p++;
         weight_p++;
 
-        for (j = 0; j < lay->prev->value_c; j++) {
-            *delta_p = *delta_p * 0.99f + grad * 0.001f * lay->prev->value_v[j];
-            *weight_p += *delta_p;
+        for (j = 0; j < lay->prev->size; j++) {
+            *delta_p = *delta_p
+                * net->momentum
+                + grad * net->rate * lay->prev->value_v[j];
+            *weight_p = *weight_p * net->decay + *delta_p;
 
             lay->prev->gradient_v[j] += grad * *weight_p;
 
@@ -123,7 +115,7 @@ backward (struct layer *lay)
         }
     }
 
-    for (j = 0; j < lay->prev->value_c; j++) {
+    for (j = 0; j < lay->prev->size; j++) {
         der = activation_derivative (lay->prev->activation,
                                      lay->prev->value_v[j]);
         lay->prev->gradient_v[j] *= der;
@@ -141,11 +133,11 @@ loss (struct layer *lay)
     float sum, sub;
     int i;
 
-    g_assert (lay->value_c == lay->net->truth_c);
+    g_assert (lay->size == lay->net->truth_c);
 
     sum = 0;
 
-    for (i = 0; i < lay->value_c; i++) {
+    for (i = 0; i < lay->size; i++) {
         sub = lay->net->truth_v[i] - lay->value_v[i];
         sum += sub * sub;
 
@@ -155,7 +147,18 @@ loss (struct layer *lay)
     g_assert (sum == sum);
     lay->net->loss = sqrtf (sum);
 
-    for (i = 0; i < lay->value_c; i++) {
+    for (i = 0; i < lay->size; i++) {
         lay->gradient_v[i] *= lay->net->loss;
+    }
+}
+
+static void
+initialize (struct layer *lay)
+{
+    int i;
+
+    for (i = 0; i < lay->weights; i++) {
+        lay->weight_v[i] = (float) rand () / RAND_MAX - 0.5f;
+        lay->delta_v[i] = 0;
     }
 }

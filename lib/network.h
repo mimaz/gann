@@ -16,6 +16,9 @@ struct network
     int delta_c;
     int truth_c;
     float loss;
+    float rate;
+    float momentum;
+    float decay;
 };
 
 struct network *network_make_empty ();
