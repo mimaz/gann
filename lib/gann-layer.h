@@ -1,11 +1,10 @@
 #pragma once
 
-#include <glib-object.h>
+#include "gann-activation.h"
 
 G_BEGIN_DECLS
 
 typedef struct _GannNetwork GannNetwork;
-typedef struct _GannLayerPrivate GannLayerPrivate;
 
 #define GANN_TYPE_LAYER (gann_layer_get_type ())
 
@@ -21,5 +20,6 @@ GannNetwork *gann_layer_get_network (GannLayer *self);
 gint gann_layer_get_width (GannLayer *self);
 gint gann_layer_get_height (GannLayer *self);
 gint gann_layer_get_depth (GannLayer *self);
+GannActivation gann_layer_get_activation (GannLayer *self);
 
 G_END_DECLS

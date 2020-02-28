@@ -92,9 +92,9 @@ network_forward (struct network *net)
 
     for (i = 0; i < count; i++) {
         lay = network_layer (net, i);
-        net->input_v = net->data_v;
-        net->input_c = net->data_c;
         lay->forward (lay);
+        net->input_v = lay->value_v;
+        net->input_c = lay->size;
     }
 }
 

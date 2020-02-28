@@ -1,24 +1,17 @@
 #pragma once
 
-#include <glib.h>
+#include "gann-activation.h"
 
 G_BEGIN_DECLS
 
+struct layer;
+
 typedef struct _GannLayer GannLayer;
 typedef struct _GannNetwork GannNetwork;
-typedef struct _GannLayerPrivate GannLayerPrivate;
 
-struct _GannLayerPrivate {
-    GannNetwork *gnet;
-
-    gint width;
-    gint height;
-    gint depth;
-
-    struct layer *l;
-};
-
-GannLayerPrivate *gann_layer_get_private (gpointer self);
+void gann_layer_set_core (GannLayer *self,
+                          struct layer *core);
+struct layer *gann_layer_get_core (GannLayer *self);
 GannLayer *gann_layer_new_input (GannNetwork *network,
                                  gint width,
                                  gint height,
@@ -26,6 +19,7 @@ GannLayer *gann_layer_new_input (GannNetwork *network,
 GannLayer *gann_layer_new_fully (GannNetwork *network,
                                  gint width,
                                  gint height,
-                                 gint depth);
+                                 gint depth,
+                                 GannActivation activation);
 
 G_END_DECLS

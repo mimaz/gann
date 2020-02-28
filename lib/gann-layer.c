@@ -8,6 +8,17 @@
 
 #include "core/layer.h"
 
+typedef struct {
+    GannNetwork *network;
+
+    gint width;
+    gint height;
+    gint depth;
+    GannActivation activation;
+
+    struct layer *l;
+} GannLayerPrivate;
+
 G_DEFINE_TYPE_WITH_PRIVATE (GannLayer, gann_layer, G_TYPE_OBJECT);
 
 enum
@@ -17,6 +28,7 @@ enum
     PROP_WIDTH,
     PROP_HEIGHT,
     PROP_DEPTH,
+    PROP_ACTIVATION,
     N_PROPS,
 };
 
@@ -79,6 +91,16 @@ gann_layer_class_init (GannLayerClass *cls)
                           G_PARAM_CONSTRUCT_ONLY |
                           G_PARAM_STATIC_STRINGS);
 
+    props[PROP_ACTIVATION] =
+        g_param_spec_enum ("activation",
+                           "Activation",
+                           "Layer activation",
+                           GANN_TYPE_ACTIVATION,
+                           GANN_ACTIVATION_LINEAR,
+                           G_PARAM_READWRITE |
+                           G_PARAM_CONSTRUCT_ONLY |
+                           G_PARAM_STATIC_STRINGS);
+
     g_object_class_install_properties (gcls, N_PROPS, props);
 }
 
@@ -88,7 +110,7 @@ dispose (GObject *gobj)
     GannLayer *self = GANN_LAYER (gobj);
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
 
-    g_clear_weak_pointer (&p->gnet);
+    g_clear_weak_pointer (&p->network);
 
     G_OBJECT_CLASS (gann_layer_parent_class)->dispose (gobj);
 }
@@ -116,7 +138,7 @@ set_property (GObject *gobj,
     switch (propid)
     {
     case PROP_NETWORK:
-        g_set_weak_pointer (&p->gnet, g_value_get_object (value));
+        g_set_weak_pointer (&p->network, g_value_get_object (value));
         break;
 
     case PROP_WIDTH:
@@ -129,6 +151,10 @@ set_property (GObject *gobj,
 
     case PROP_DEPTH:
         p->depth = g_value_get_int (value);
+        break;
+
+    case PROP_ACTIVATION:
+        p->activation = g_value_get_enum (value);
         break;
 
     default:
@@ -148,19 +174,23 @@ get_property (GObject *gobj,
     switch (propid)
     {
     case PROP_NETWORK:
-        g_value_set_object (value, p->gnet);
+        g_value_set_object (value, p->network);
         break;
 
     case PROP_WIDTH:
-        g_value_set_int (value, p->l->width);
+        g_value_set_int (value, p->width);
         break;
 
     case PROP_HEIGHT:
-        g_value_set_int (value, p->l->height);
+        g_value_set_int (value, p->height);
         break;
 
     case PROP_DEPTH:
-        g_value_set_int (value, p->l->depth);
+        g_value_set_int (value, p->depth);
+        break;
+
+    case PROP_ACTIVATION:
+        g_value_set_enum (value, p->activation);
         break;
 
     default:
@@ -168,33 +198,57 @@ get_property (GObject *gobj,
     }
 }
 
+GannNetwork *
+gann_layer_get_network (GannLayer *self)
+{
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+    return p->network;
+}
+
 gint
 gann_layer_get_width (GannLayer *self)
 {
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
-    return p->l->width;
+    return p->width;
 }
 
 gint
 gann_layer_get_height (GannLayer *self)
 {
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
-    return p->l->height;
+    return p->height;
 }
 
 gint
 gann_layer_get_depth (GannLayer *self)
 {
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
-    return p->l->depth;
+    return p->depth;
+}
+
+GannActivation
+gann_layer_get_activation (GannLayer *self)
+{
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+    return p->activation;
 }
 
 /* PRIVATE */
 
-GannLayerPrivate *
-gann_layer_get_private (gpointer self)
+void
+gann_layer_set_core (GannLayer *self,
+                     struct layer *core)
 {
-    return gann_layer_get_instance_private (GANN_LAYER (self));
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+    g_assert (p->l == NULL);
+    p->l = core;
+}
+
+struct layer *
+gann_layer_get_core (GannLayer *self)
+{
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+    return p->l;
 }
 
 GannLayer *
@@ -215,12 +269,14 @@ GannLayer *
 gann_layer_new_fully (GannNetwork *network,
                       gint width,
                       gint height,
-                      gint depth)
+                      gint depth,
+                      GannActivation activation)
 {
     return g_object_new (GANN_TYPE_FULLY_LAYER,
                          "network", network,
                          "width", width,
                          "height", height,
                          "depth", depth,
+                         "activation", activation,
                          NULL);
 }

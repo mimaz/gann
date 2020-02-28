@@ -173,6 +173,7 @@ insert_layer (GannNetwork *self,
               GannLayer *layer)
 {
     GannNetworkPrivate *p = gann_network_get_instance_private (self);
+    g_assert (GANN_IS_INPUT_LAYER (layer) || p->layer_arr->len > 0);
     g_ptr_array_insert (p->layer_arr, -1, layer);
     g_object_notify_by_pspec (G_OBJECT (self),
                               props[PROP_LAYER_COUNT]);
@@ -196,14 +197,22 @@ GannFullyLayer *
 gann_network_create_fully (GannNetwork *self,
                            gint width,
                            gint height,
-                           gint depth)
+                           gint depth,
+                           GannActivation activation)
 {
     GannLayer *layer;
 
-    layer = gann_layer_new_fully (self, width, height, depth);
+    layer = gann_layer_new_fully (self, width, height, depth, activation);
     insert_layer (self, layer);
 
     return GANN_FULLY_LAYER (layer);
+}
+
+GannInputLayer *
+gann_network_get_input_layer (GannNetwork *self)
+{
+    GannNetworkPrivate *p = gann_network_get_instance_private (self);
+    return GANN_INPUT_LAYER (g_ptr_array_index (p->layer_arr, 0));
 }
 
 void

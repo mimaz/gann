@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glib-object.h>
+#include "gann-activation.h"
 
 G_BEGIN_DECLS
 
@@ -26,7 +26,10 @@ GannInputLayer *gann_network_create_input (GannNetwork *self,
 GannFullyLayer *gann_network_create_fully (GannNetwork *self,
                                            gint width,
                                            gint height,
-                                           gint depth);
+                                           gint depth,
+                                           GannActivation activation);
+
+GannInputLayer *gann_network_get_input_layer (GannNetwork *self);
 
 void gann_network_set_rate (GannNetwork *self,
                             gfloat rate);

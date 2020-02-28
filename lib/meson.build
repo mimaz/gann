@@ -5,6 +5,7 @@ source = [
     'gann-layer.c',
     'gann-input-layer.c',
     'gann-fully-layer.c',
+    'gann-activation.c',
 ]
 
 public_header = [
@@ -12,6 +13,7 @@ public_header = [
     'gann-layer.h',
     'gann-input-layer.h',
     'gann-fully-layer.h',
+    'gann-activation.h',
 ]
 
 dependencies = [
