@@ -1,7 +1,6 @@
 source = [
     'network.c',
     'layer.c',
-    'convolution-layer.c',
     'fully-layer.c',
     'input-layer.c',
 ]

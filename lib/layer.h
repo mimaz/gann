@@ -15,9 +15,12 @@ enum layer_type
 struct layer
 {
     struct network *net;
+    struct layer *prev;
     enum layer_type type;
-    float *weight_v;
     float *value_v;
+    float *gradient_v;
+    float *weight_v;
+    float *delta_v;
     int weight_c;
     int value_c;
     int width;
@@ -40,8 +43,5 @@ struct layer *layer_make_full (struct network *net,
 struct layer *layer_make_input (struct network *net,
                                 int width, int height, int depth);
 
-void layer_forward (struct layer *lay);
-void layer_backward (struct layer *lay);
-void layer_activate (struct layer *lay);
 void layer_free (struct layer *lay);
 void layer_randomize (struct layer *lay);

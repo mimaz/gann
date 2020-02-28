@@ -59,6 +59,13 @@ network_set_truth (struct network *net, float *values, int size)
 }
 
 void
+network_set_delta (struct network *net, float *values, int size)
+{
+    net->delta_v = values;
+    net->delta_c = size;
+}
+
+void
 network_forward (struct network *net)
 {
     int i, count;
@@ -67,11 +74,10 @@ network_forward (struct network *net)
     count = network_layer_count (net);
 
     for (i = 0; i < count; i++) {
-        g_message ("forward %d", i);
         lay = network_layer (net, i);
         net->input_v = net->data_v;
         net->input_c = net->data_c;
-        layer_forward (lay);
+        lay->forward (lay);
     }
 }
 
@@ -79,12 +85,18 @@ void
 network_backward (struct network *net)
 {
     struct layer *lay;
+    int i, count;
 
     lay = network_layer_last (net);
     g_assert (lay->loss != NULL);
     lay->loss (lay);
 
-    g_message ("loss: %f", net->loss);
+    count = network_layer_count (net);
+
+    for (i = count; i > 0; i--) {
+        lay = network_layer (net, i - 1);
+        lay->backward (lay);
+    }
 }
 
 void
