@@ -22,6 +22,7 @@ struct network
 };
 
 struct network *network_make_empty ();
+void network_free (struct network *net);
 struct layer *network_layer (struct network *net, int index);
 struct layer *network_layer_last (struct network *net);
 int network_layer_count (struct network *net);

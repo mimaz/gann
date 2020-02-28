@@ -15,6 +15,20 @@ network_make_empty ()
     return net;
 }
 
+void
+network_free (struct network *net)
+{
+    struct layer *lay;
+    int count, i;
+
+    count = network_layer_count (net);
+
+    for (i = 0; i < count; i++) {
+        lay = network_layer (net, i);
+        layer_free (lay);
+    }
+}
+
 struct layer *
 network_layer (struct network *net, int index)
 {

@@ -1,13 +1,20 @@
+subdir('core/')
+
 source = [
-    'network.c',
-    'layer.c',
-    'fully-layer.c',
-    'input-layer.c',
+    'gann-network.c',
+    'gann-layer.c',
+    'gann-input-layer.c',
+]
+
+public_header = [
+    'gann-network.h',
+    'gann-layer.h',
+    'gann-input-layer.h',
 ]
 
 dependencies = [
-    glib_dep,
-    math_dep,
+    ganncore_dep,
+    gobject_dep,
 ]
 
 libgann = shared_library(meson.project_name(),

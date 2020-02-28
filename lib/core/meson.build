@@ -1,0 +1,19 @@
+source = [
+    'network.c',
+    'layer.c',
+    'fully-layer.c',
+    'input-layer.c',
+]
+
+dependencies = [
+    glib_dep,
+    math_dep,
+]
+
+libganncore = static_library(meson.project_name() + 'core',
+                             source,
+                             install: false,
+                             dependencies: dependencies)
+
+ganncore_dep = declare_dependency(link_with: libganncore,
+                                  include_directories: '.')

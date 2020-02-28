@@ -3,7 +3,7 @@ source = [
 ]
 
 dependencies = [
-    glib_dep,
+    gobject_dep,
     gann_dep,
 ]
 
