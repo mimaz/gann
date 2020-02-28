@@ -6,6 +6,8 @@ main (gint argc, gchar **argv)
     GannNetwork *net = gann_network_new ();
 
     gann_network_create_input (net, 1, 1, 2);
+    gann_network_create_fully (net, 1, 1, 3);
+    gann_network_create_fully (net, 1, 1, 1);
 
     g_object_unref (net);
     /* struct network *net; */

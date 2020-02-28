@@ -6,6 +6,7 @@ G_BEGIN_DECLS
 
 typedef struct _GannLayer GannLayer;
 typedef struct _GannInputLayer GannInputLayer;
+typedef struct _GannFullyLayer GannFullyLayer;
 
 #define GANN_TYPE_NETWORK (gann_network_get_type ())
 
@@ -19,6 +20,10 @@ struct _GannNetworkClass
 
 GannNetwork *gann_network_new ();
 GannInputLayer *gann_network_create_input (GannNetwork *self,
+                                           gint width,
+                                           gint height,
+                                           gint depth);
+GannFullyLayer *gann_network_create_fully (GannNetwork *self,
                                            gint width,
                                            gint height,
                                            gint depth);

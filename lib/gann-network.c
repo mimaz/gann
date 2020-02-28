@@ -3,6 +3,7 @@
 #include "gann-network-private.h"
 #include "gann-layer-private.h"
 #include "gann-input-layer.h"
+#include "gann-fully-layer.h"
 
 #include "core/network.h"
 #include "core/layer.h"
@@ -167,22 +168,42 @@ gann_network_new ()
     return g_object_new (GANN_TYPE_NETWORK, NULL);
 }
 
+static void
+insert_layer (GannNetwork *self,
+              GannLayer *layer)
+{
+    GannNetworkPrivate *p = gann_network_get_instance_private (self);
+    g_ptr_array_insert (p->layer_arr, -1, layer);
+    g_object_notify_by_pspec (G_OBJECT (self),
+                              props[PROP_LAYER_COUNT]);
+}
+
 GannInputLayer *
 gann_network_create_input (GannNetwork *self,
                            gint width,
                            gint height,
                            gint depth)
 {
-    GannNetworkPrivate *p = gann_network_get_instance_private (self);
     GannLayer *layer;
 
     layer = gann_layer_new_input (self, width, height, depth);
-
-    g_ptr_array_insert (p->layer_arr, -1, layer);
-    g_object_notify_by_pspec (G_OBJECT (self),
-                              props[PROP_LAYER_COUNT]);
+    insert_layer (self, layer);
 
     return GANN_INPUT_LAYER (layer);
+}
+
+GannFullyLayer *
+gann_network_create_fully (GannNetwork *self,
+                           gint width,
+                           gint height,
+                           gint depth)
+{
+    GannLayer *layer;
+
+    layer = gann_layer_new_fully (self, width, height, depth);
+    insert_layer (self, layer);
+
+    return GANN_FULLY_LAYER (layer);
 }
 
 void

@@ -2,6 +2,7 @@
 
 #include "gann-layer-private.h"
 #include "gann-input-layer.h"
+#include "gann-fully-layer.h"
 #include "gann-network.h"
 #include "gann-network-private.h"
 
@@ -203,6 +204,20 @@ gann_layer_new_input (GannNetwork *network,
                       gint depth)
 {
     return g_object_new (GANN_TYPE_INPUT_LAYER,
+                         "network", network,
+                         "width", width,
+                         "height", height,
+                         "depth", depth,
+                         NULL);
+}
+
+GannLayer *
+gann_layer_new_fully (GannNetwork *network,
+                      gint width,
+                      gint height,
+                      gint depth)
+{
+    return g_object_new (GANN_TYPE_FULLY_LAYER,
                          "network", network,
                          "width", width,
                          "height", height,

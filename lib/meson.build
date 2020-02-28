@@ -4,12 +4,14 @@ source = [
     'gann-network.c',
     'gann-layer.c',
     'gann-input-layer.c',
+    'gann-fully-layer.c',
 ]
 
 public_header = [
     'gann-network.h',
     'gann-layer.h',
     'gann-input-layer.h',
+    'gann-fully-layer.h',
 ]
 
 dependencies = [

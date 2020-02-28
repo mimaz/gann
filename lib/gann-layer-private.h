@@ -23,5 +23,9 @@ GannLayer *gann_layer_new_input (GannNetwork *network,
                                  gint width,
                                  gint height,
                                  gint depth);
+GannLayer *gann_layer_new_fully (GannNetwork *network,
+                                 gint width,
+                                 gint height,
+                                 gint depth);
 
 G_END_DECLS
