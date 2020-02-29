@@ -3,6 +3,7 @@
 
 static void forward (struct layer *lay);
 static void backward (struct layer *lay);
+static void release (struct layer *lay);
 
 struct layer *
 layer_make_input (struct network *net,
@@ -28,7 +29,7 @@ layer_make_input (struct network *net,
     base->weights = 0;
     base->forward = forward;
     base->backward = backward;
-    base->release = NULL;
+    base->release = release;
 
     network_push_layer (net, base);
 
@@ -46,4 +47,11 @@ forward (struct layer *lay)
 static void
 backward (struct layer *lay)
 {
+}
+
+static void
+release (struct layer *lay)
+{
+    g_clear_pointer (&lay->value_v, g_free);
+    g_clear_pointer (&lay->gradient_v, g_free);
 }

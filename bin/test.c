@@ -4,12 +4,14 @@ gint
 main (gint argc, gchar **argv)
 {
     GannInputLayer *in;
+    GannOutputLayer *out;
     GannNetwork *net = gann_network_new ();
 
     in = gann_network_create_input (net, 1, 1, 2);
     gann_network_create_fully (net, 1, 1, 10, GANN_ACTIVATION_RELU);
     gann_network_create_fully (net, 1, 1, 10, GANN_ACTIVATION_RELU);
     gann_network_create_fully (net, 1, 1, 1, GANN_ACTIVATION_RELU);
+    out = gann_network_create_output (net);
 
     gann_input_layer_set_input_floats (in, 1.0f, 0.0f, -1.0f);
 

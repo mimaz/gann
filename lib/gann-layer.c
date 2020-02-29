@@ -2,6 +2,7 @@
 
 #include "gann-layer-private.h"
 #include "gann-input-layer.h"
+#include "gann-output-layer.h"
 #include "gann-fully-layer.h"
 #include "gann-network.h"
 #include "gann-network-private.h"
@@ -69,26 +70,26 @@ gann_layer_class_init (GannLayerClass *cls)
         g_param_spec_int ("width",
                           "Width",
                           "Layer width",
-                          1, G_MAXINT16, 1,
+                          0, G_MAXINT16, 0,
                           G_PARAM_READWRITE |
-                          G_PARAM_CONSTRUCT_ONLY |
+                          G_PARAM_CONSTRUCT |
                           G_PARAM_STATIC_STRINGS);
     props[PROP_HEIGHT] =
         g_param_spec_int ("height",
                           "Height",
                           "Layer height",
-                          1, G_MAXINT16, 1,
+                          0, G_MAXINT16, 0,
                           G_PARAM_READWRITE |
-                          G_PARAM_CONSTRUCT_ONLY |
+                          G_PARAM_CONSTRUCT |
                           G_PARAM_STATIC_STRINGS);
 
     props[PROP_DEPTH] =
         g_param_spec_int ("depth",
                           "Depth",
                           "Layer depth",
-                          1, G_MAXINT16, 1,
+                          0, G_MAXINT16, 0,
                           G_PARAM_READWRITE |
-                          G_PARAM_CONSTRUCT_ONLY |
+                          G_PARAM_CONSTRUCT |
                           G_PARAM_STATIC_STRINGS);
 
     props[PROP_ACTIVATION] =
@@ -202,8 +203,9 @@ const gfloat *
 gann_layer_get_data (GannLayer *self,
                      gsize *size)
 {
-    *size = 0;
-    return NULL;
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+    *size = p->l->size;
+    return p->l->value_v;
 }
 
 GannNetwork *
@@ -270,6 +272,14 @@ gann_layer_new_input (GannNetwork *network,
                          "width", width,
                          "height", height,
                          "depth", depth,
+                         NULL);
+}
+
+GannLayer *
+gann_layer_new_output (GannNetwork *network)
+{
+    return g_object_new (GANN_TYPE_OUTPUT_LAYER,
+                         "network", network,
                          NULL);
 }
 

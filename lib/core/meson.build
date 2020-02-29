@@ -3,6 +3,7 @@ source = [
     'layer.c',
     'fully-layer.c',
     'input-layer.c',
+    'output-layer.c',
 ]
 
 dependencies = [

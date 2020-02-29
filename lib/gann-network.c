@@ -3,6 +3,7 @@
 #include "gann-network-private.h"
 #include "gann-layer-private.h"
 #include "gann-input-layer.h"
+#include "gann-output-layer.h"
 #include "gann-fully-layer.h"
 
 #include "core/network.h"
@@ -196,6 +197,17 @@ gann_network_create_input (GannNetwork *self,
     insert_layer (self, layer);
 
     return GANN_INPUT_LAYER (layer);
+}
+
+GannOutputLayer *
+gann_network_create_output (GannNetwork *self)
+{
+    GannLayer *layer;
+
+    layer = gann_layer_new_output (self);
+    insert_layer (self, layer);
+
+    return GANN_OUTPUT_LAYER (layer);
 }
 
 GannFullyLayer *

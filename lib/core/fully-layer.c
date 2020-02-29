@@ -4,8 +4,6 @@
 static void forward (struct layer *lay);
 static void backward (struct layer *lay);
 static void release (struct layer *lay);
-static void loss (struct layer *lay);
-static void initialize (struct layer *lay);
 
 struct layer *
 layer_make_full (struct network *net,
@@ -13,7 +11,7 @@ layer_make_full (struct network *net,
                  int width, int height, int depth)
 {
     struct layer *base, *prev;
-    int size, weights;
+    int size, weights, i;
 
     base = g_new0 (struct layer, 1);
     prev = network_layer_last (net);
@@ -25,26 +23,25 @@ layer_make_full (struct network *net,
     base->prev = prev;
     base->type = LAYER_FULLY;
     base->activation = activation;
-
     base->value_v = g_new (float, size);
     base->gradient_v = g_new (float, size);
-
     base->weight_v = g_new (float, weights);
     base->delta_v = g_new (float, weights);
-
     base->width = width;
     base->height = height;
     base->depth = depth;
     base->size = size;
     base->weights = weights;
-
     base->forward = forward;
     base->backward = backward;
     base->release = release;
-    base->loss = loss;
-    base->initialize = initialize;
 
     network_push_layer (net, base);
+
+    for (i = 0; i < base->weights; i++) {
+        base->weight_v[i] = (float) rand () / RAND_MAX - 0.5f;
+        base->delta_v[i] = 0;
+    }
 
     return base;
 }
@@ -125,40 +122,8 @@ backward (struct layer *lay)
 static void
 release (struct layer *lay)
 {
-}
-
-static void
-loss (struct layer *lay)
-{
-    float sum, sub;
-    int i;
-
-    g_assert (lay->size == lay->net->truth_c);
-
-    sum = 0;
-
-    for (i = 0; i < lay->size; i++) {
-        sub = lay->net->truth_v[i] - lay->value_v[i];
-        sum += sub * sub;
-
-        lay->gradient_v[i] = sub;
-    }
-
-    g_assert (sum == sum);
-    lay->net->loss = sqrtf (sum);
-
-    for (i = 0; i < lay->size; i++) {
-        lay->gradient_v[i] *= lay->net->loss;
-    }
-}
-
-static void
-initialize (struct layer *lay)
-{
-    int i;
-
-    for (i = 0; i < lay->weights; i++) {
-        lay->weight_v[i] = (float) rand () / RAND_MAX - 0.5f;
-        lay->delta_v[i] = 0;
-    }
+    g_clear_pointer (&lay->value_v, g_free);
+    g_clear_pointer (&lay->gradient_v, g_free);
+    g_clear_pointer (&lay->weight_v, g_free);
+    g_clear_pointer (&lay->delta_v, g_free);
 }

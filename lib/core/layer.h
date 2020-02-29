@@ -6,6 +6,7 @@ enum layer_type
 {
     LAYER_NONE,
     LAYER_INPUT,
+    LAYER_OUTPUT,
     LAYER_CONVOLUTION,
     LAYER_ACTIVATION,
     LAYER_FULLY,
@@ -47,6 +48,11 @@ struct layer *layer_make_full (struct network *net,
                                int width, int height, int depth);
 struct layer *layer_make_input (struct network *net,
                                 int width, int height, int depth);
+struct layer *layer_make_output (struct network *net);
 
 void layer_free (struct layer *lay);
 void layer_randomize (struct layer *lay);
+
+void layer_output_set_truth (struct layer *lay,
+                             const float *data,
+                             int size);
