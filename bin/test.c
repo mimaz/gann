@@ -3,15 +3,15 @@
 gint
 main (gint argc, gchar **argv)
 {
+    GannInputLayer *in;
     GannNetwork *net = gann_network_new ();
 
-    gann_network_create_input (net, 1, 1, 2);
+    in = gann_network_create_input (net, 1, 1, 2);
     gann_network_create_fully (net, 1, 1, 10, GANN_ACTIVATION_RELU);
     gann_network_create_fully (net, 1, 1, 10, GANN_ACTIVATION_RELU);
     gann_network_create_fully (net, 1, 1, 1, GANN_ACTIVATION_RELU);
 
-    GannInputLayer *in = gann_network_get_input_layer (net);
-    gann_input_layer_set_input_ints (in, 1, 0, -1);
+    gann_input_layer_set_input_floats (in, 1.0f, 0.0f, -1.0f);
 
     g_object_unref (net);
     /* struct network *net; */

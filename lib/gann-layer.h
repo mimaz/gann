@@ -16,6 +16,9 @@ struct _GannLayerClass
     GObjectClass parent_class;
 };
 
+const gfloat *gann_layer_get_data (GannLayer *self,
+                                   gsize *size);
+
 GannNetwork *gann_layer_get_network (GannLayer *self);
 gint gann_layer_get_width (GannLayer *self);
 gint gann_layer_get_height (GannLayer *self);

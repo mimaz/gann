@@ -12,7 +12,7 @@ G_DECLARE_FINAL_TYPE (GannInputLayer, gann_input_layer,
 void gann_input_layer_set_input (GannInputLayer *self,
                                  const gfloat *data,
                                  gsize datasize);
-void gann_input_layer_set_input_ints (GannInputLayer *self,
-                                      gint first, ...);
+void gann_input_layer_set_input_floats (GannInputLayer *self,
+                                        gfloat first, ...);
 
 G_END_DECLS

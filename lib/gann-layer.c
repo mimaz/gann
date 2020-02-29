@@ -198,6 +198,14 @@ get_property (GObject *gobj,
     }
 }
 
+const gfloat *
+gann_layer_get_data (GannLayer *self,
+                     gsize *size)
+{
+    *size = 0;
+    return NULL;
+}
+
 GannNetwork *
 gann_layer_get_network (GannLayer *self)
 {

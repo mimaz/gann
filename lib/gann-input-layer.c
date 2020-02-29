@@ -8,7 +8,6 @@
 struct _GannInputLayer
 {
     GObject parent_instance;
-    GArray *owned_array;
 };
 
 G_DEFINE_TYPE (GannInputLayer, gann_input_layer,
@@ -34,14 +33,7 @@ gann_input_layer_class_init (GannInputLayerClass *cls)
 static void
 dispose (GObject *gobj)
 {
-    GannInputLayer *self = GANN_INPUT_LAYER (gobj);
-
-    if (self->owned_array != NULL) {
-        gann_layer_get_core (GANN_LAYER (self))->value_v = NULL;
-    }
-
-    g_clear_pointer (&self->owned_array, g_array_unref);
-
+    /* allocated data block is freed by core layer */
     G_OBJECT_CLASS (gann_input_layer_parent_class)->dispose (gobj);
 }
 
@@ -77,33 +69,30 @@ gann_input_layer_set_input (GannInputLayer *self,
     lay = gann_layer_get_core (GANN_LAYER (self));
     g_assert (datasize == lay->size);
 
-    lay->value_v = (gfloat *) data;
+    g_clear_pointer (&lay->value_v, g_free);
+
+    lay->value_v = g_memdup (data, datasize * sizeof (gfloat));
 }
 
 void
-gann_input_layer_set_input_ints (GannInputLayer *self,
-                                 gint first, ...)
+gann_input_layer_set_input_floats (GannInputLayer *self,
+                                   gfloat first, ...)
 {
     GArray *arr;
     va_list args;
-    gint value;
-    gfloat fvalue;
 
     arr = g_array_new (FALSE, FALSE, sizeof (gfloat));
-    value = first;
-
     va_start (args, first);
 
     do {
-        fvalue = value;
-        g_array_append_val (arr, fvalue);
-        value = va_arg (args, gint);
-    } while (value >= 0);
+        g_array_append_val (arr, first);
 
-    gann_input_layer_set_input (self, (const gfloat *) arr->data, arr->len);
+        /* floats are promoted as doubles */
+        first = va_arg (args, gdouble);
+    } while (first >= 0);
 
-    g_clear_pointer (&self->owned_array, g_array_unref);
+    gann_input_layer_set_input (self, (gfloat *) arr->data, arr->len);
+
+    g_array_unref (arr);
     va_end (args);
-
-    self->owned_array = arr;
 }

@@ -8,6 +8,11 @@
 #include "core/network.h"
 #include "core/layer.h"
 
+typedef struct {
+    struct network *net;
+    GPtrArray *layer_arr;
+} GannNetworkPrivate;
+
 G_DEFINE_TYPE_WITH_PRIVATE (GannNetwork, gann_network, G_TYPE_OBJECT);
 
 enum
@@ -213,6 +218,13 @@ gann_network_get_input_layer (GannNetwork *self)
 {
     GannNetworkPrivate *p = gann_network_get_instance_private (self);
     return GANN_INPUT_LAYER (g_ptr_array_index (p->layer_arr, 0));
+}
+
+void
+gann_network_set_truth_data (GannNetwork *self,
+                             const gfloat *data,
+                             gsize datasize)
+{
 }
 
 void

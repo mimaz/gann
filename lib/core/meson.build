@@ -10,9 +10,9 @@ dependencies = [
     math_dep,
 ]
 
-libganncore = static_library(meson.project_name() + 'core',
+libganncore = shared_library(meson.project_name() + 'core',
                              source,
-                             install: false,
+                             install: true,
                              dependencies: dependencies)
 
 ganncore_dep = declare_dependency(link_with: libganncore,
