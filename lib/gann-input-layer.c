@@ -68,9 +68,9 @@ constructed (GObject *gobj)
 }
 
 void
-gann_input_layer_set_data (GannInputLayer *self,
-                           const gfloat *data,
-                           gsize datasize)
+gann_input_layer_set_input (GannInputLayer *self,
+                            const gfloat *data,
+                            gsize datasize)
 {
     struct layer *lay;
 
@@ -81,8 +81,8 @@ gann_input_layer_set_data (GannInputLayer *self,
 }
 
 void
-gann_input_layer_set_ints (GannInputLayer *self,
-                           gint first, ...)
+gann_input_layer_set_input_ints (GannInputLayer *self,
+                                 gint first, ...)
 {
     GArray *arr;
     va_list args;
@@ -100,7 +100,7 @@ gann_input_layer_set_ints (GannInputLayer *self,
         value = va_arg (args, gint);
     } while (value >= 0);
 
-    gann_input_layer_set_data (self, (const gfloat *) arr->data, arr->len);
+    gann_input_layer_set_input (self, (const gfloat *) arr->data, arr->len);
 
     g_clear_pointer (&self->owned_array, g_array_unref);
     va_end (args);

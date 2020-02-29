@@ -11,7 +11,7 @@ main (gint argc, gchar **argv)
     gann_network_create_fully (net, 1, 1, 1, GANN_ACTIVATION_RELU);
 
     GannInputLayer *in = gann_network_get_input_layer (net);
-    gann_input_layer_set_ints (in, 1, 0, -1);
+    gann_input_layer_set_input_ints (in, 1, 0, -1);
 
     g_object_unref (net);
     /* struct network *net; */
