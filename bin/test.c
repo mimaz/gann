@@ -16,7 +16,7 @@ main (gint argc, gchar **argv)
     gann_network_create_fully (net, 1, 1, 1, GANN_ACTIVATION_STEP);
     out = gann_network_create_output (net);
 
-    for (i = 0; i < 500000; i++) {
+    for (i = 0; i < 1; i++) {
         p = rand () & 1;
         q = rand () & 1;
         r = p == 0 || q == 1;

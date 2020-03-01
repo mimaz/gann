@@ -10,6 +10,7 @@ source = [
 dependencies = [
     glib_dep,
     math_dep,
+    opencl_dep,
 ]
 
 libganncore = shared_library(meson.project_name() + 'core',
