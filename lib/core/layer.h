@@ -1,6 +1,7 @@
 #pragma once
 
 #include "activation.h"
+#include "context.h"
 
 enum layer_type
 {
@@ -21,10 +22,18 @@ struct layer
     enum activation_type activation;
 
     float *value_v;
+    cl_mem value_mem;
     float *gradient_v;
+    cl_mem gradient_mem;
 
     float *weight_v;
+    cl_mem weight_mem;
     float *delta_v;
+    cl_mem delta_mem;
+
+    cl_program program;
+    cl_kernel forward_kernel;
+    cl_kernel backward_kernel;
 
     int width;
     int height;

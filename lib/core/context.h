@@ -8,6 +8,7 @@
 struct context
 {
     GSList *netlist;
+    cl_device_id device;
     cl_context context;
     cl_command_queue queue;
 };
