@@ -7,6 +7,7 @@ source = [
     'gann-output-layer.c',
     'gann-fully-layer.c',
     'gann-activation.c',
+    'gann-context.c',
 ]
 
 public_header = [

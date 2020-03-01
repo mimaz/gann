@@ -4,6 +4,7 @@ source = [
     'fully-layer.c',
     'input-layer.c',
     'output-layer.c',
+    'context.c',
 ]
 
 dependencies = [

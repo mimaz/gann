@@ -5,3 +5,4 @@
 #include "gann-input-layer.h"
 #include "gann-output-layer.h"
 #include "gann-fully-layer.h"
+#include "gann-context.h"

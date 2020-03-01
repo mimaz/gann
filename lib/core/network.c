@@ -1,16 +1,20 @@
 #include "network.h"
 #include "layer.h"
+#include "context.h"
 
 struct network *
-network_make_empty ()
+network_make_empty (struct context *ctx)
 {
     struct network *net;
 
     net = g_new0 (struct network, 1);
+    net->ctx = ctx;
     net->layers = g_ptr_array_new ();
     net->rate = 0.001f;
     net->momentum = 0.99f;
     net->decay = 0.00001f;
+
+    ctx->netlist = g_slist_prepend (ctx->netlist, net);
 
     return net;
 }
@@ -20,6 +24,8 @@ network_free (struct network *net)
 {
     struct layer *lay;
     int count, i;
+
+    net->ctx->netlist = g_slist_remove (net->ctx->netlist, net);
 
     count = network_layer_count (net);
 
@@ -97,21 +103,5 @@ network_backward (struct network *net)
         lay = network_layer (net, i - 1);
         g_assert (lay->backward != NULL);
         lay->backward (lay);
-    }
-}
-
-void
-network_randomize (struct network *net)
-{
-    struct layer *lay;
-    int count, i;
-
-    count = network_layer_count (net);
-
-    for (i = 0; i < count; i++) {
-        lay = network_layer (net, i);
-        if (lay->initialize != NULL) {
-            lay->initialize (lay);
-        }
     }
 }

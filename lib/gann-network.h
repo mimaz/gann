@@ -4,6 +4,8 @@
 
 G_BEGIN_DECLS
 
+struct network;
+typedef struct _GannContext GannContext;
 typedef struct _GannLayer GannLayer;
 typedef struct _GannInputLayer GannInputLayer;
 typedef struct _GannOutputLayer GannOutputLayer;
@@ -19,8 +21,9 @@ struct _GannNetworkClass
     GObjectClass parent_class;
 };
 
-GannNetwork *gann_network_new ();
-GannNetwork *gann_network_new_full (gfloat rate,
+GannNetwork *gann_network_new (GannContext *context);
+GannNetwork *gann_network_new_full (GannContext *context,
+                                    gfloat rate,
                                     gfloat momentum,
                                     gfloat decay);
 GannInputLayer *gann_network_create_input (GannNetwork *self,
@@ -37,7 +40,9 @@ void gann_network_forward (GannNetwork *self);
 void gann_network_backward (GannNetwork *self);
 GannLayer *gann_network_get_layer (GannNetwork *self,
                                    gint index);
+struct network *gann_network_get_core (GannNetwork *self);
 void gann_network_forward (GannNetwork *self);
+GannContext *gann_network_get_context (GannNetwork *self);
 void gann_network_set_rate (GannNetwork *self,
                             gfloat rate);
 gfloat gann_network_get_rate (GannNetwork *self);

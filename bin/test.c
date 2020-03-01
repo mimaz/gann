@@ -5,20 +5,21 @@ main (gint argc, gchar **argv)
 {
     GannInputLayer *in;
     GannOutputLayer *out;
+    GannContext *context;
     GannNetwork *net;
     gint i, p, q, r;
 
-    net = gann_network_new_full (0.01f, 0.9f, 0.999999f);
+    context = gann_context_new ();
+    net = gann_network_new_full (context, 0.01f, 0.9f, 0.999999f);
     in = gann_network_create_input (net, 1, 1, 2);
-    gann_network_create_fully (net, 1, 1, 3, GANN_ACTIVATION_LEAKY);
-    gann_network_create_fully (net, 1, 1, 3, GANN_ACTIVATION_SIGMOID);
+    gann_network_create_fully (net, 1, 1, 3, GANN_ACTIVATION_RELU);
     gann_network_create_fully (net, 1, 1, 1, GANN_ACTIVATION_STEP);
     out = gann_network_create_output (net);
 
     for (i = 0; i < 500000; i++) {
         p = rand () & 1;
         q = rand () & 1;
-        r = p ^ q;
+        r = p == 0 || q == 1;
 
         gann_input_layer_set_input_floats (in, (gfloat) p, (gfloat) q, -1.0f);
         gann_output_layer_set_truth_floats (out, (gfloat) r, -1.0f);
@@ -33,5 +34,6 @@ main (gint argc, gchar **argv)
         }
     }
 
+    g_object_unref (context);
     g_object_unref (net);
 }

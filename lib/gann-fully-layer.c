@@ -1,9 +1,9 @@
 #include "gann-fully-layer.h"
 
+#include "gann-network.h"
 #include "gann-layer-private.h"
-#include "gann-network-private.h"
 
-#include "core/layer.h"
+#include "core/core.h"
 
 struct _GannFullyLayer
 {
