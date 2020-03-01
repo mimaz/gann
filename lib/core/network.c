@@ -10,7 +10,7 @@ network_make_empty ()
     net->layers = g_ptr_array_new ();
     net->rate = 0.001f;
     net->momentum = 0.99f;
-    net->decay = 0.999999f;
+    net->decay = 0.00001f;
 
     return net;
 }
@@ -62,27 +62,6 @@ network_push_layer (struct network *net, struct layer *lay)
 }
 
 void
-network_set_data (struct network *net, float *values, int size)
-{
-    net->data_v = values;
-    net->data_c = size;
-}
-
-void
-network_set_truth (struct network *net, float *values, int size)
-{
-    net->truth_v = values;
-    net->truth_c = size;
-}
-
-void
-network_set_delta (struct network *net, float *values, int size)
-{
-    net->delta_v = values;
-    net->delta_c = size;
-}
-
-void
 network_forward (struct network *net)
 {
     int i, count;
@@ -92,9 +71,8 @@ network_forward (struct network *net)
 
     for (i = 0; i < count; i++) {
         lay = network_layer (net, i);
+        g_assert (lay->forward != NULL);
         lay->forward (lay);
-        net->input_v = lay->value_v;
-        net->input_c = lay->size;
     }
 }
 
@@ -113,12 +91,11 @@ network_backward (struct network *net)
         }
     }
 
-    lay = network_layer_last (net);
-    g_assert (lay->loss != NULL);
-    lay->loss (lay);
+    net->loss = 0;
 
     for (i = count; i > 0; i--) {
         lay = network_layer (net, i - 1);
+        g_assert (lay->backward != NULL);
         lay->backward (lay);
     }
 }

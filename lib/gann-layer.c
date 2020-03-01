@@ -18,6 +18,7 @@ typedef struct {
     GannActivation activation;
 
     struct layer *l;
+    enum activation_type core_activation;
 } GannLayerPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE (GannLayer, gann_layer, G_TYPE_OBJECT);
@@ -41,6 +42,7 @@ static void set_property (GObject *gobj, guint propid,
                           const GValue *value, GParamSpec *spec);
 static void get_property (GObject *gobj, guint propid,
                           GValue *value, GParamSpec *spec);
+static void update_core_activation (GannLayer *self);
 
 static void
 gann_layer_init (GannLayer *self)
@@ -156,6 +158,7 @@ set_property (GObject *gobj,
 
     case PROP_ACTIVATION:
         p->activation = g_value_get_enum (value);
+        update_core_activation (self);
         break;
 
     default:
@@ -199,12 +202,36 @@ get_property (GObject *gobj,
     }
 }
 
+static void
+update_core_activation (GannLayer *self)
+{
+    static enum activation_type core_v[] = {
+        [GANN_ACTIVATION_LINEAR] = ACTIVATION_LINEAR,
+        [GANN_ACTIVATION_RELU] = ACTIVATION_RELU,
+        [GANN_ACTIVATION_SIGMOID] = ACTIVATION_SIGMOID,
+        [GANN_ACTIVATION_LEAKY] = ACTIVATION_LEAKY,
+        [GANN_ACTIVATION_ELU] = ACTIVATION_ELU,
+        [GANN_ACTIVATION_STEP] = ACTIVATION_STEP,
+    };
+
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+    GannActivation act;
+
+    act = gann_layer_get_activation (self);
+    g_assert (act < G_N_ELEMENTS (core_v));
+    p->core_activation = core_v[act];
+}
+
 const gfloat *
 gann_layer_get_data (GannLayer *self,
                      gsize *size)
 {
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
-    *size = p->l->size;
+
+    if (size != NULL) {
+        *size = p->l->size;
+    }
+
     return p->l->value_v;
 }
 
@@ -259,6 +286,13 @@ gann_layer_get_core (GannLayer *self)
 {
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
     return p->l;
+}
+
+enum activation_type
+gann_layer_get_core_activation (GannLayer *self)
+{
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+    return p->core_activation;
 }
 
 GannLayer *

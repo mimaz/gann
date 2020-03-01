@@ -38,9 +38,13 @@ layer_make_full (struct network *net,
 
     network_push_layer (net, base);
 
-    for (i = 0; i < base->weights; i++) {
-        base->weight_v[i] = (float) rand () / RAND_MAX - 0.5f;
+    for (i = 0; i < weights; i++) {
         base->delta_v[i] = 0;
+        base->weight_v[i] = (float) (i + 1) / weights / prev->size;
+
+        if (activation == ACTIVATION_SIGMOID) {
+            base->weight_v[i] -= 1.0f;
+        }
     }
 
     return base;
@@ -52,17 +56,15 @@ forward (struct layer *lay)
     const float *input_p, *weight_p;
     float sum, *value_p;
 
-    g_assert (lay->prev->size == lay->net->input_c);
-
     weight_p = lay->weight_v;
     value_p = lay->value_v;
 
     while (value_p < lay->value_v + lay->size) {
-        input_p = lay->net->input_v;
+        input_p = lay->prev->value_v;
 
         sum = *weight_p++;
 
-        while (input_p < lay->net->input_v + lay->net->input_c) {
+        while (input_p < lay->prev->value_v + lay->prev->size) {
             sum += *weight_p++ * *input_p++;
         }
 
@@ -70,20 +72,17 @@ forward (struct layer *lay)
     }
 
     g_assert (weight_p == lay->weight_v + lay->weights);
-
-    network_set_data (lay->net, lay->value_v, lay->size);
 }
 
 static void
 backward (struct layer *lay)
 {
-    struct network *net;
-    float grad, der, *delta_p, *weight_p;
+    float *delta_p, *weight_p, *gradient_p;
     int i, j;
 
-    net = lay->net;
     weight_p = lay->weight_v;
     delta_p = lay->delta_v;
+    gradient_p = lay->gradient_v;
 
     for (j = 0; j < lay->prev->size; j++) {
         lay->prev->gradient_v[j] = 0;
@@ -91,31 +90,32 @@ backward (struct layer *lay)
 
     for (i = 0; i < lay->size; i++) {
         /* bias */
-        grad = lay->gradient_v[i];
-
-        *delta_p = *delta_p * net->momentum + grad * net->rate;
-        *weight_p += *delta_p;
+        *delta_p = *delta_p * lay->net->momentum
+            + *gradient_p * lay->net->rate;
+        *weight_p = *weight_p * lay->net->decay + *delta_p;
 
         delta_p++;
         weight_p++;
 
         for (j = 0; j < lay->prev->size; j++) {
             *delta_p = *delta_p
-                * net->momentum
-                + grad * net->rate * lay->prev->value_v[j];
-            *weight_p = *weight_p * net->decay + *delta_p;
+                * lay->net->momentum
+                + *gradient_p * lay->net->rate * lay->prev->value_v[j];
+            *weight_p = *weight_p * lay->net->decay + *delta_p;
 
-            lay->prev->gradient_v[j] += grad * *weight_p;
+            lay->prev->gradient_v[j] += *gradient_p * *weight_p;
 
             weight_p++;
             delta_p++;
         }
+
+        gradient_p++;
     }
 
     for (j = 0; j < lay->prev->size; j++) {
-        der = activation_derivative (lay->prev->activation,
-                                     lay->prev->value_v[j]);
-        lay->prev->gradient_v[j] *= der;
+        lay->prev->gradient_v[j] *=
+            activation_derivative (lay->prev->activation,
+                                   lay->prev->value_v[j]);
     }
 }
 

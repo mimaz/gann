@@ -12,6 +12,7 @@
 typedef struct {
     struct network *net;
     GPtrArray *layer_arr;
+    gfloat avg_loss;
 } GannNetworkPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE (GannNetwork, gann_network, G_TYPE_OBJECT);
@@ -23,6 +24,8 @@ enum
     PROP_MOMENTUM,
     PROP_DECAY,
     PROP_LAYER_COUNT,
+    PROP_LOSS,
+    PROP_AVERAGE_LOSS,
     N_PROPS,
 };
 
@@ -42,6 +45,7 @@ gann_network_init (GannNetwork *self)
 
     p->net = network_make_empty ();
     p->layer_arr = g_ptr_array_new_with_free_func (g_object_unref);
+    p->avg_loss = -1;
 }
 
 static void
@@ -86,6 +90,22 @@ gann_network_class_init (GannNetworkClass *cls)
                           G_PARAM_READWRITE |
                           G_PARAM_STATIC_STRINGS);
 
+    props[PROP_LOSS] =
+        g_param_spec_float ("loss",
+                            "Loss",
+                            "Latest loss",
+                            0, G_MAXFLOAT, 0,
+                            G_PARAM_READWRITE |
+                            G_PARAM_STATIC_STRINGS);
+
+    props[PROP_AVERAGE_LOSS] =
+        g_param_spec_float ("average-loss",
+                            "Average loss",
+                            "Average loss",
+                            0, G_MAXFLOAT, 0,
+                            G_PARAM_READWRITE |
+                            G_PARAM_STATIC_STRINGS);
+
     g_object_class_install_properties (gcls, N_PROPS, props);
 }
 
@@ -105,6 +125,7 @@ static void
 constructed (GObject *gobj)
 {
     /* GannNetwork *self = GANN_NETWORK (gobj); */
+    /* GannNetworkPrivate *p = gann_network_get_instance_private (self); */
 
     G_OBJECT_CLASS (gann_network_parent_class)->constructed (gobj);
 }
@@ -163,6 +184,10 @@ get_property (GObject *gobj,
         g_value_set_int (value, p->layer_arr->len);
         break;
 
+    case PROP_LOSS:
+        g_value_set_float (value, p->net->loss);
+        break;
+
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (gobj, propid, spec);
     }
@@ -171,7 +196,17 @@ get_property (GObject *gobj,
 GannNetwork *
 gann_network_new ()
 {
-    return g_object_new (GANN_TYPE_NETWORK, NULL);
+    return gann_network_new_full (0.001f, 0.99f, 1.0f);
+}
+
+GannNetwork *
+gann_network_new_full (gfloat rate, gfloat momentum, gfloat decay)
+{
+    return g_object_new (GANN_TYPE_NETWORK,
+                         "rate", rate,
+                         "momentum", momentum,
+                         "decay", decay,
+                         NULL);
 }
 
 static void
@@ -179,6 +214,7 @@ insert_layer (GannNetwork *self,
               GannLayer *layer)
 {
     GannNetworkPrivate *p = gann_network_get_instance_private (self);
+
     g_assert (GANN_IS_INPUT_LAYER (layer) || p->layer_arr->len > 0);
     g_ptr_array_insert (p->layer_arr, -1, layer);
     g_object_notify_by_pspec (G_OBJECT (self),
@@ -223,6 +259,44 @@ gann_network_create_fully (GannNetwork *self,
     insert_layer (self, layer);
 
     return GANN_FULLY_LAYER (layer);
+}
+
+void
+gann_network_forward (GannNetwork *self)
+{
+    GannNetworkPrivate *p = gann_network_get_instance_private (self);
+
+    network_forward (p->net);
+}
+
+void
+gann_network_backward (GannNetwork *self)
+{
+    GannNetworkPrivate *p = gann_network_get_instance_private (self);
+
+    network_backward (p->net);
+
+    if (p->avg_loss < 0) {
+        p->avg_loss = p->net->loss;
+    } else {
+        p->avg_loss *= 0.9f;
+        p->avg_loss += p->net->loss * 0.1f;
+    }
+
+    g_object_notify_by_pspec (G_OBJECT (self),
+                              props[PROP_LOSS]);
+    g_object_notify_by_pspec (G_OBJECT (self),
+                              props[PROP_AVERAGE_LOSS]);
+}
+
+GannLayer *
+gann_network_get_layer (GannNetwork *self,
+                        gint index)
+{
+    GannNetworkPrivate *p = gann_network_get_instance_private (self);
+
+    g_return_val_if_fail (index < p->layer_arr->len, NULL);
+    return g_ptr_array_index (p->layer_arr, index);
 }
 
 GannInputLayer *
@@ -302,6 +376,30 @@ gann_network_get_decay (GannNetwork *self)
     return p->net->decay;
 }
 
+gint
+gann_network_get_layer_count (GannNetwork *self)
+{
+    GannNetworkPrivate *p = gann_network_get_instance_private (self);
+
+    return p->layer_arr->len;
+}
+
+gfloat
+gann_network_get_loss (GannNetwork *self)
+{
+    GannNetworkPrivate *p = gann_network_get_instance_private (self);
+
+    return p->net->loss;
+}
+
+gfloat
+gann_network_get_average_loss (GannNetwork *self)
+{
+    GannNetworkPrivate *p = gann_network_get_instance_private (self);
+
+    return p->avg_loss;
+}
+
 /* PRIVATE */
 
 struct network *
@@ -310,10 +408,4 @@ gann_network_get_core (GannNetwork *self)
     GannNetworkPrivate *p = gann_network_get_instance_private (self);
 
     return p->net;
-}
-
-GannNetworkPrivate *
-gann_network_get_private (gpointer self)
-{
-    return gann_network_get_instance_private (GANN_NETWORK (self));
 }

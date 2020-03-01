@@ -39,9 +39,6 @@ layer_make_input (struct network *net,
 static void
 forward (struct layer *lay)
 {
-    g_assert (lay->net->input_c == lay->size);
-    memcpy (lay->value_v, lay->net->input_v, lay->size * sizeof (float));
-    network_set_data (lay->net, lay->value_v, lay->size);
 }
 
 static void

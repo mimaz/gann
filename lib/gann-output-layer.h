@@ -12,7 +12,7 @@ G_DECLARE_FINAL_TYPE (GannOutputLayer, gann_output_layer,
 void gann_output_layer_set_truth (GannOutputLayer *self,
                                   const gfloat *data,
                                   gsize datasize);
-void gann_output_layer_set_truth_ints (GannOutputLayer *self,
-                                       gint first, ...);
+void gann_output_layer_set_truth_floats (GannOutputLayer *self,
+                                         gfloat first, ...);
 
 G_END_DECLS

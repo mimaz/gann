@@ -32,31 +32,13 @@ constructed (GObject *gobj)
 {
     GannLayer *layer;
     GannNetwork *network;
-    enum activation_type activation;
     struct layer *core;
 
     layer = GANN_LAYER (gobj);
     network = gann_layer_get_network (layer);
 
-    switch (gann_layer_get_activation (layer)) {
-    case GANN_ACTIVATION_LINEAR:
-        activation = ACTIVATION_LINEAR;
-        break;
-
-    case GANN_ACTIVATION_RELU:
-        activation = ACTIVATION_RELU;
-        break;
-
-    case GANN_ACTIVATION_SIGMOID:
-        activation = ACTIVATION_SIGMOID;
-        break;
-
-    default:
-        g_error ("invalid activation value");
-    }
-
     core = layer_make_full (gann_network_get_core (network),
-                            activation,
+                            gann_layer_get_core_activation (layer),
                             gann_layer_get_width (layer),
                             gann_layer_get_height (layer),
                             gann_layer_get_depth (layer));

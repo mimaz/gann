@@ -12,6 +12,7 @@ typedef struct _GannNetwork GannNetwork;
 void gann_layer_set_core (GannLayer *self,
                           struct layer *core);
 struct layer *gann_layer_get_core (GannLayer *self);
+enum activation_type gann_layer_get_core_activation (GannLayer *self);
 GannLayer *gann_layer_new_input (GannNetwork *network,
                                  gint width,
                                  gint height,

@@ -29,7 +29,7 @@ layer_make_output (struct network *net)
     base->type = LAYER_OUTPUT;
     base->activation = ACTIVATION_LINEAR;
     base->value_v = g_new (float, size);
-    base->gradient_v = NULL;
+    base->gradient_v = g_new (float, size);
     base->weight_v = NULL;
     base->delta_v = NULL;
     base->width = prev->width;
@@ -87,6 +87,7 @@ backward (struct layer *lay)
     for (i = 0; i < lay->size; i++) {
         sub = out->truth_v[i] - lay->value_v[i];
         sum += sub * sub;
+        /* g_message ("sub %f %f %f", sub, out->truth_v[i], lay->value_v[i]); */
 
         lay->gradient_v[i] = sub;
     }
@@ -98,6 +99,7 @@ backward (struct layer *lay)
 
     for (i = 0; i < lay->size; i++) {
         lay->prev->gradient_v[i] = lay->gradient_v[i] * out->loss;
+        /* g_message ("prev gradient %f", lay->prev->gradient_v[i]); */
     }
 }
 
@@ -109,5 +111,6 @@ release (struct layer *lay)
     out = (struct output_layer *) lay;
 
     g_clear_pointer (&lay->value_v, g_free);
+    g_clear_pointer (&lay->gradient_v, g_free);
     g_clear_pointer (&out->truth_v, g_free);
 }

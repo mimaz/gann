@@ -20,6 +20,9 @@ struct _GannNetworkClass
 };
 
 GannNetwork *gann_network_new ();
+GannNetwork *gann_network_new_full (gfloat rate,
+                                    gfloat momentum,
+                                    gfloat decay);
 GannInputLayer *gann_network_create_input (GannNetwork *self,
                                            gint width,
                                            gint height,
@@ -30,17 +33,22 @@ GannFullyLayer *gann_network_create_fully (GannNetwork *self,
                                            gint height,
                                            gint depth,
                                            GannActivation activation);
-
+void gann_network_forward (GannNetwork *self);
+void gann_network_backward (GannNetwork *self);
+GannLayer *gann_network_get_layer (GannNetwork *self,
+                                   gint index);
+void gann_network_forward (GannNetwork *self);
 void gann_network_set_rate (GannNetwork *self,
                             gfloat rate);
 gfloat gann_network_get_rate (GannNetwork *self);
-
 void gann_network_set_momentum (GannNetwork *self,
                                 gfloat momentum);
 gfloat gann_network_get_momentum (GannNetwork *self);
-
 void gann_network_set_decay (GannNetwork *self,
                              gfloat decay);
 gfloat gann_network_get_decay (GannNetwork *self);
+gint gann_network_get_layer_count (GannNetwork *self);
+gfloat gann_network_get_loss (GannNetwork *self);
+gfloat gann_network_get_average_loss (GannNetwork *self);
 
 G_END_DECLS
