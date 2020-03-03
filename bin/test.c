@@ -10,16 +10,18 @@ main (gint argc, gchar **argv)
     gint i, p, q, r;
 
     context = gann_context_new ();
-    net = gann_network_new_full (context, 0.01f, 0.9f, 0.999999f);
+    net = gann_network_new_full (context, 0.01f, 0.9f, 0.99995f);
     in = gann_network_create_input (net, 1, 1, 2);
-    gann_network_create_fully (net, 1, 1, 3, GANN_ACTIVATION_RELU);
-    gann_network_create_fully (net, 1, 1, 1, GANN_ACTIVATION_STEP);
+    gann_network_create_fully (net, 1, 1, 20, GANN_ACTIVATION_RELU);
+    gann_network_create_fully (net, 1, 1, 20, GANN_ACTIVATION_RELU);
+    gann_network_create_fully (net, 1, 1, 1, GANN_ACTIVATION_RELU);
     out = gann_network_create_output (net);
 
-    for (i = 0; i < 1; i++) {
+    for (i = 0; i < 10000; i++) {
         p = rand () & 1;
         q = rand () & 1;
         r = p == 0 || q == 1;
+        r = p;
 
         gann_input_layer_set_input_floats (in, (gfloat) p, (gfloat) q, -1.0f);
         gann_output_layer_set_truth_floats (out, (gfloat) r, -1.0f);
@@ -29,7 +31,7 @@ main (gint argc, gchar **argv)
                    gann_network_get_average_loss (net), r,
                    gann_layer_get_data (GANN_LAYER (out), NULL)[0]);
 
-        if (gann_network_get_average_loss (net) < 0.01 && i > 10) {
+        if (gann_network_get_average_loss (net) < 0.05 && i > 10) {
             break;
         }
     }

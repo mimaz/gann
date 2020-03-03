@@ -1,5 +1,6 @@
 #include "layer.h"
 #include "network.h"
+#include "context.h"
 
 static void forward (struct layer *lay);
 static void backward (struct layer *lay);
@@ -11,6 +12,7 @@ layer_make_input (struct network *net,
 {
     struct layer *base;
     int size;
+    cl_int err;
 
     base = g_new0 (struct layer, 1);
     size = width * height * depth;
@@ -19,7 +21,17 @@ layer_make_input (struct network *net,
     base->type = LAYER_INPUT;
     base->activation = ACTIVATION_LINEAR;
     base->value_v = g_new (float, size);
+    base->value_mem = clCreateBuffer (net->ctx->context,
+                                      CL_MEM_READ_WRITE,
+                                      size * sizeof (cl_float),
+                                      NULL, &err);
+    g_assert (err == CL_SUCCESS);
     base->gradient_v = g_new (float, size);
+    base->gradient_mem = clCreateBuffer (net->ctx->context,
+                                         CL_MEM_READ_WRITE,
+                                         size * sizeof (cl_float),
+                                         NULL, &err);
+    g_assert (err == CL_SUCCESS);
     base->weight_v = NULL;
     base->delta_v = NULL;
     base->width = width;
@@ -39,6 +51,12 @@ layer_make_input (struct network *net,
 static void
 forward (struct layer *lay)
 {
+    clEnqueueWriteBuffer (lay->net->ctx->queue,
+                          lay->value_mem,
+                          CL_TRUE,
+                          0, lay->size * sizeof (cl_float),
+                          lay->value_v,
+                          0, NULL, NULL);
 }
 
 static void

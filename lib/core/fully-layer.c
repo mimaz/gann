@@ -2,43 +2,74 @@
 #include "network.h"
 #include "context.h"
 
+#include <stdio.h>
+
 #define USE_OPENCL
+
+enum
+{
+    KERNEL_REDUCE_INPUTS,
+    KERNEL_BIAS_ACTIVATE,
+};
 
 static void forward (struct layer *lay);
 static void backward (struct layer *lay);
 static void release (struct layer *lay);
 
 static const char *forward_source = R"(
-__kernel void forward (__global float *input_v,
-                       __global float *value_v,
-                       __global float *weight_v,
-                       unsigned int size,
-                       unsigned int weights) {
-    for (int i = 0; i < size; i++) {
-        input_v[i] = i;
+__kernel void reduce_inputs (__global const float *input,
+                       __global const float *weight,
+                       __global float *value) {
+    __local float partial[INPUTS];
+
+    int local_id = get_local_id (0);
+    int global_id = get_global_id (0);
+    int group_id = get_group_id (0);
+
+    partial[local_id] = input[local_id] * weight[global_id];
+
+    for (int off = get_local_size (0) / 2; off > 0; off /= 2) {
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        if (local_id < off) {
+            partial[local_id] += partial[local_id + off];
+        }
+    }
+
+    if (local_id == 0) {
+        value[group_id] = partial[0];
     }
 }
 
-__kernel void backward () {
+__kernel void bias_activate (__global const float *bias,
+                        __global float *value) {
+    int global_id = get_global_id (0);
+
+    value[global_id] = ACTIVATION (value[global_id] + bias[global_id]);
 }
 )";
 
 static cl_program
 build_program (struct network *net,
-               int sourcec,
-               const char **sourcev)
+               const char *source,
+               int inputs, int outputs)
 {
     cl_program prog;
     cl_int err;
-    char *log;
+    char options[512], *log;
     size_t log_size;
 
     prog = clCreateProgramWithSource (net->ctx->context,
-                                      sourcec, sourcev,
+                                      1, &source,
                                       NULL, &err);
     g_assert (err == CL_SUCCESS);
 
-    err = clBuildProgram (prog, 0, NULL, NULL, NULL, NULL);
+    snprintf (options, sizeof (options),
+              "-DINPUTS=%d -DOUTPUTS=%d -DACTIVATION(x)=\"x > 0 ? x : 0\" "
+              "-DDERIVATIVE(a)=\"a > 0 ? 1 : 0\"",
+              inputs, outputs);
+
+    err = clBuildProgram (prog, 0, NULL, options, NULL, NULL);
 
     if (err != CL_SUCCESS) {
         clGetProgramBuildInfo (prog, net->ctx->device, 
@@ -72,7 +103,7 @@ layer_make_full (struct network *net,
     prev = network_layer_last (net);
 
     size = width * height * depth;
-    weights = (prev->size + 1) * size;
+    weights = prev->size * size;
 
     base->net = net;
     base->prev = prev;
@@ -90,6 +121,12 @@ layer_make_full (struct network *net,
                                          size * sizeof (cl_float),
                                          NULL, &err);
     g_assert (err == 0);
+    base->bias_v = g_new (float, size);
+    base->bias_mem = clCreateBuffer (net->ctx->context,
+                                     CL_MEM_READ_WRITE,
+                                     size * sizeof (cl_float),
+                                     NULL, &err);
+    g_assert (err == 0);
     base->weight_v = g_new (float, weights);
     base->weight_mem = clCreateBuffer (net->ctx->context,
                                        CL_MEM_READ_WRITE,
@@ -102,10 +139,18 @@ layer_make_full (struct network *net,
                                       weights * sizeof (cl_float),
                                       NULL, &err);
     g_assert (err == 0);
-    base->program = build_program (net, 1, &forward_source);
-    base->forward_kernel = clCreateKernel (base->program, "forward", &err);
-    g_assert (err == CL_SUCCESS);
-    base->backward_kernel = clCreateKernel (base->program, "backward", &err);
+    base->bias_delta_v = g_new (float, weights);
+    base->bias_delta_mem = clCreateBuffer (net->ctx->context,
+                                           CL_MEM_READ_WRITE,
+                                           weights * sizeof (cl_float),
+                                           NULL, &err);
+    g_assert (err == 0);
+    base->program = build_program (net, forward_source,
+                                   base->prev->size, base->size);
+    base->kernels[KERNEL_REDUCE_INPUTS] =
+        clCreateKernel (base->program, "reduce_inputs", &err);
+    base->kernels[KERNEL_BIAS_ACTIVATE] =
+        clCreateKernel (base->program, "bias_activate", &err);
     g_assert (err == CL_SUCCESS);
     base->width = width;
     base->height = height;
@@ -127,6 +172,11 @@ layer_make_full (struct network *net,
         }
     }
 
+    for (i = 0; i < size; i++) {
+        base->bias_v[i] = 0;
+        base->bias_delta_v[i] = 0;
+    }
+
     return base;
 }
 
@@ -134,49 +184,63 @@ static void
 forward (struct layer *lay)
 {
 #ifdef USE_OPENCL
-    cl_mem input_mem;
-    cl_int err;
+    cl_int err = CL_SUCCESS;
     size_t global_size, local_size;
 
-    global_size = lay->size;
-    local_size = 1;
-    input_mem = clCreateBuffer (lay->net->ctx->context,
-                                CL_MEM_READ_WRITE,
-                                lay->size * sizeof (cl_float),
-                                NULL, &err);
+    local_size = lay->prev->size;
+    global_size = lay->size * local_size;
+    clEnqueueWriteBuffer (lay->net->ctx->queue,
+                          lay->weight_mem,
+                          CL_TRUE,
+                          0, lay->weights * sizeof (cl_float),
+                          lay->weight_v,
+                          0, NULL, NULL);
     g_assert (err == CL_SUCCESS);
 
-    clSetKernelArg (lay->forward_kernel, 0,
-                    sizeof (cl_mem), &input_mem);
-    clSetKernelArg (lay->forward_kernel, 1,
-                    sizeof (cl_mem), &lay->value_mem);
-    clSetKernelArg (lay->forward_kernel, 2,
-                    sizeof (cl_mem), &lay->weight_mem);
-    clSetKernelArg (lay->forward_kernel, 3,
-                    sizeof (cl_uint), &lay->size);
-    clSetKernelArg (lay->forward_kernel, 4,
-                    sizeof (cl_uint), &lay->weights);
-    clEnqueueNDRangeKernel (lay->net->ctx->queue,
-                            lay->forward_kernel,
-                            1, NULL, &global_size, &local_size,
-                            0, NULL, NULL);
+    err = clSetKernelArg (lay->kernels[KERNEL_REDUCE_INPUTS], 0,
+                          sizeof (cl_mem), &lay->prev->value_mem);
+    err |= clSetKernelArg (lay->kernels[KERNEL_REDUCE_INPUTS], 1,
+                           sizeof (cl_mem), &lay->weight_mem);
+    err |= clSetKernelArg (lay->kernels[KERNEL_REDUCE_INPUTS], 2,
+                           sizeof (cl_mem), &lay->value_mem);
+    err |= clEnqueueNDRangeKernel (lay->net->ctx->queue,
+                                   lay->kernels[KERNEL_REDUCE_INPUTS],
+                                   1, NULL,
+                                   &global_size, &local_size,
+                                   0, NULL, NULL);
+    g_assert (err == CL_SUCCESS);
+    local_size = 256;
+    global_size = ceil((float) lay->size / local_size) * local_size;
+    err = clSetKernelArg (lay->kernels[KERNEL_BIAS_ACTIVATE], 0,
+                          sizeof (cl_mem), &lay->prev->value_mem);
+    err |= clSetKernelArg (lay->kernels[KERNEL_BIAS_ACTIVATE], 1,
+                           sizeof (cl_mem), &lay->weight_mem);
+    err |= clEnqueueNDRangeKernel (lay->net->ctx->queue,
+                                   lay->kernels[KERNEL_BIAS_ACTIVATE],
+                                   1, NULL,
+                                   &global_size, &local_size,
+                                   0, NULL, NULL);
+    g_assert (err == CL_SUCCESS);
     clFinish (lay->net->ctx->queue);
 
-    clReleaseMemObject (input_mem);
+    clEnqueueReadBuffer (lay->net->ctx->queue,
+                         lay->value_mem,
+                         CL_TRUE,
+                         0, lay->size * sizeof (cl_float),
+                         lay->value_v, 0, NULL, NULL);
 
-    g_message ("done");
-    exit (0);
 #else
-    const float *input_p, *weight_p;
+    const float *input_p, *weight_p, *bias_p;
     float sum, *value_p;
 
     weight_p = lay->weight_v;
     value_p = lay->value_v;
+    bias_p = lay->bias_v;
 
     while (value_p < lay->value_v + lay->size) {
         input_p = lay->prev->value_v;
 
-        sum = *weight_p++;
+        sum = *bias_p++;
 
         while (input_p < lay->prev->value_v + lay->prev->size) {
             sum += *weight_p++ * *input_p++;
@@ -192,10 +256,12 @@ forward (struct layer *lay)
 static void
 backward (struct layer *lay)
 {
-    float *delta_p, *weight_p, *gradient_p;
+    float *bias_delta_p, *delta_p, *bias_p, *weight_p, *gradient_p;
     int i, j;
 
     weight_p = lay->weight_v;
+    bias_p = lay->bias_v;
+    bias_delta_p = lay->bias_delta_v;
     delta_p = lay->delta_v;
     gradient_p = lay->gradient_v;
 
@@ -204,13 +270,12 @@ backward (struct layer *lay)
     }
 
     for (i = 0; i < lay->size; i++) {
-        /* bias */
-        *delta_p = *delta_p * lay->net->momentum
+        *bias_delta_p = *bias_delta_p * lay->net->momentum
             + *gradient_p * lay->net->rate;
-        *weight_p = *weight_p * lay->net->decay + *delta_p;
+        *bias_p = *bias_p * lay->net->decay + *bias_delta_p;
 
-        delta_p++;
-        weight_p++;
+        bias_delta_p++;
+        bias_p++;
 
         for (j = 0; j < lay->prev->size; j++) {
             *delta_p = *delta_p

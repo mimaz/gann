@@ -25,15 +25,18 @@ struct layer
     cl_mem value_mem;
     float *gradient_v;
     cl_mem gradient_mem;
+    float *bias_v;
+    cl_mem bias_mem;
 
     float *weight_v;
     cl_mem weight_mem;
     float *delta_v;
     cl_mem delta_mem;
+    float *bias_delta_v;
+    cl_mem bias_delta_mem;
 
     cl_program program;
-    cl_kernel forward_kernel;
-    cl_kernel backward_kernel;
+    cl_kernel kernels[8];
 
     int width;
     int height;
