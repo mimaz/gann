@@ -9,19 +9,18 @@ main (gint argc, gchar **argv)
     GannNetwork *net;
     gint i, p, q, r;
 
+    srand(0);
     context = gann_context_new ();
-    net = gann_network_new_full (context, 0.01f, 0.9f, 0.99995f);
+    net = gann_network_new_full (context, 0.1f, 0.95f, 1.0f);
     in = gann_network_create_input (net, 1, 1, 2);
-    gann_network_create_fully (net, 1, 1, 20, GANN_ACTIVATION_RELU);
-    gann_network_create_fully (net, 1, 1, 20, GANN_ACTIVATION_RELU);
-    gann_network_create_fully (net, 1, 1, 1, GANN_ACTIVATION_RELU);
+    gann_network_create_fully (net, 1, 1, 6, GANN_ACTIVATION_SIGMOID);
+    gann_network_create_fully (net, 1, 1, 1, GANN_ACTIVATION_SIGMOID);
     out = gann_network_create_output (net);
 
-    for (i = 0; i < 10000; i++) {
+    for (i = 0; i < 100000; i++) {
         p = rand () & 1;
         q = rand () & 1;
-        r = p == 0 || q == 1;
-        r = p;
+        r = p ^ q;
 
         gann_input_layer_set_input_floats (in, (gfloat) p, (gfloat) q, -1.0f);
         gann_output_layer_set_truth_floats (out, (gfloat) r, -1.0f);

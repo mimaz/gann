@@ -1,10 +1,10 @@
 #pragma once
 
-#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
+#define CL_TARGET_OPENCL_VERSION 100
 
 #include <glib.h>
 #include <gio/gio.h>
-#include <CL/opencl.h>
+#include <CL/cl.h>
 
 struct context
 {

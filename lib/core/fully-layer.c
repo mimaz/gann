@@ -33,11 +33,9 @@ build_program (struct network *net,
     g_assert (err == CL_SUCCESS);
 
     opts = g_strdup_printf ("-DINPUTS=%d "
-                            "-DOUTPUTS=%d "
-                            "-DACTIVATION(x)=\"%s\" ",
+                            "-DOUTPUTS=%d ",
                             inputs,
-                            outputs,
-                            "x > 0 ? x : 0");
+                            outputs);
 
     err = clBuildProgram (prog, 0, NULL, opts, NULL, NULL);
     g_free (opts);
@@ -125,11 +123,7 @@ layer_make_full (struct network *net,
 
     for (i = 0; i < weights; i++) {
         base->delta_v[i] = 0;
-        base->weight_v[i] = (float) (i + 1) / weights / prev->size;
-
-        if (activation == ACTIVATION_SIGMOID) {
-            base->weight_v[i] -= 1.0f;
-        }
+        base->weight_v[i] = (float) rand () / RAND_MAX / prev->size;
     }
 
     for (i = 0; i < size; i++) {
@@ -150,6 +144,12 @@ forward (struct layer *lay)
     local_size = lay->prev->size;
     global_size = lay->size * local_size;
     clEnqueueWriteBuffer (lay->net->ctx->queue,
+                          lay->bias_mem,
+                          CL_TRUE,
+                          0, lay->size * sizeof (cl_float),
+                          lay->bias_v,
+                          0, NULL, NULL);
+    clEnqueueWriteBuffer (lay->net->ctx->queue,
                           lay->weight_mem,
                           CL_TRUE,
                           0, lay->weights * sizeof (cl_float),
@@ -169,19 +169,18 @@ forward (struct layer *lay)
                                    &global_size, &local_size,
                                    0, NULL, NULL);
     g_assert (err == CL_SUCCESS);
-    local_size = 256;
+    local_size = 16;
     global_size = ceil((float) lay->size / local_size) * local_size;
     err = clSetKernelArg (lay->kernels[KERNEL_BIAS_ACTIVATE], 0,
-                          sizeof (cl_mem), &lay->prev->value_mem);
+                          sizeof (cl_mem), &lay->bias_mem);
     err |= clSetKernelArg (lay->kernels[KERNEL_BIAS_ACTIVATE], 1,
-                           sizeof (cl_mem), &lay->weight_mem);
+                           sizeof (cl_mem), &lay->value_mem);
     err |= clEnqueueNDRangeKernel (lay->net->ctx->queue,
                                    lay->kernels[KERNEL_BIAS_ACTIVATE],
                                    1, NULL,
                                    &global_size, &local_size,
                                    0, NULL, NULL);
     g_assert (err == CL_SUCCESS);
-    clFinish (lay->net->ctx->queue);
 
     clEnqueueReadBuffer (lay->net->ctx->queue,
                          lay->value_mem,
@@ -231,7 +230,7 @@ backward (struct layer *lay)
 
     for (i = 0; i < lay->size; i++) {
         *bias_delta_p = *bias_delta_p * lay->net->momentum
-            + *gradient_p * lay->net->rate;
+            + *gradient_p * lay->net->rate * (1 - lay->net->momentum);
         *bias_p = *bias_p * lay->net->decay + *bias_delta_p;
 
         bias_delta_p++;

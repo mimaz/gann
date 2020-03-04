@@ -21,7 +21,7 @@ context_create ()
     err = clGetPlatformIDs (1, &plat_id, NULL);
     g_assert (err == 0);
 
-    err = clGetDeviceIDs (plat_id, CL_DEVICE_TYPE_GPU, 1, &ctx->device, NULL);
+    err = clGetDeviceIDs (plat_id, CL_DEVICE_TYPE_CPU, 1, &ctx->device, NULL);
     g_assert (err == 0);
 
     ctx->context = clCreateContext (0, 1, &ctx->device, NULL, NULL, &err);

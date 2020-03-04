@@ -25,6 +25,8 @@ value[group_id] = partial[0];
 __kernel void bias_activate (__global const float *bias,
                                       __global float *value) {
 int global_id = get_global_id (0);
+float sum = value[global_id] + bias[global_id];
 
-value[global_id] = ACTIVATION (value[global_id] + bias[global_id]);
+sum = 1.0f / (1.0f + exp (-sum));
+value[global_id] = sum;
 }
