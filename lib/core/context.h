@@ -9,7 +9,8 @@
 struct context
 {
     GSList *netlist;
-    GHashTable *cltable;
+    GHashTable *codetable;
+    GSList *programlist;
     GResource *resource;
     cl_device_id device;
     cl_context context;
@@ -20,3 +21,7 @@ struct context *context_create ();
 void context_free (struct context *ctx);
 const char *context_read_cl_code (struct context *ctx,
                                   const char *name);
+cl_program context_build_program (struct context *ctx,
+                                  const char *options,
+                                  const char *firstfile,
+                                  ...);

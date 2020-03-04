@@ -97,5 +97,5 @@ __kernel void derive_gradient (__global const float *value,
 
     float v = value[gid];
 
-    gradient[gid] = v * (1 - v);
+    gradient[gid] *= v * (1 - v);
 }

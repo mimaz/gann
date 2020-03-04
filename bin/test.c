@@ -30,11 +30,11 @@ main (gint argc, gchar **argv)
                    gann_network_get_average_loss (net), r,
                    gann_layer_get_data (GANN_LAYER (out), NULL)[0]);
 
-        if (gann_network_get_average_loss (net) < 0.05 && i > 10) {
+        if (gann_network_get_average_loss (net) < 0.10 && i > 10) {
             break;
         }
     }
 
-    g_object_unref (context);
     g_object_unref (net);
+    g_object_unref (context);
 }

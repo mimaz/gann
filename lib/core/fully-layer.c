@@ -14,6 +14,7 @@ enum
     KERNEL_BIAS_BACKPROP,
     KERNEL_WEIGHT_BACKPROP,
     KERNEL_DERIVE_GRADIENT,
+    N_KERNELS,
 };
 
 static void forward (struct layer *lay);
@@ -24,39 +25,16 @@ static cl_program
 build_program (struct network *net,
                int inputs, int outputs)
 {
-    cl_program prog;
-    cl_int err;
-    char *opts, *log;
-    size_t log_size;
-    const char *src;
-
-    src = context_read_cl_code (net->ctx, "fully-layer.cl");
-    prog = clCreateProgramWithSource (net->ctx->context,
-                                      1, &src,
-                                      NULL, &err);
-    g_assert (err == CL_SUCCESS);
+    g_autofree char *opts;
 
     opts = g_strdup_printf ("-DINPUTS=%d "
                             "-DOUTPUTS=%d ",
                             inputs,
                             outputs);
 
-    err = clBuildProgram (prog, 0, NULL, opts, NULL, NULL);
-    g_free (opts);
-
-    if (err != CL_SUCCESS) {
-        clGetProgramBuildInfo (prog, net->ctx->device, 
-                               CL_PROGRAM_BUILD_LOG,
-                               0, NULL, &log_size);
-        log = g_new (char, log_size);
-        clGetProgramBuildInfo (prog, net->ctx->device,
-                               CL_PROGRAM_BUILD_LOG,
-                               log_size, log, NULL);
-        g_error (log);
-        g_free (log);
-    }
-
-    return prog;
+    return context_build_program (net->ctx, opts,
+                                  "fully-layer.cl",
+                                  NULL);
 }
 
 static cl_mem
@@ -331,6 +309,20 @@ backward (struct layer *lay)
                                    0, NULL, NULL);
     g_assert (err == CL_SUCCESS);
 
+    lsize = 16;
+    gsize = ceil((float) lay->prev->size / 16) * 16;
+
+    err = clSetKernelArg (lay->kernels[KERNEL_DERIVE_GRADIENT], 0,
+                          sizeof (cl_mem), &lay->prev->value_mem);
+    err |= clSetKernelArg (lay->kernels[KERNEL_DERIVE_GRADIENT], 1,
+                          sizeof (cl_mem), &lay->prev->gradient_mem);
+    err |= clEnqueueNDRangeKernel (lay->net->ctx->queue,
+                                   lay->kernels[KERNEL_DERIVE_GRADIENT],
+                                   1, NULL,
+                                   &gsize, &lsize,
+                                   0, NULL, NULL);
+    g_assert (err == CL_SUCCESS);
+
     clEnqueueReadBuffer (lay->net->ctx->queue,
                           lay->gradient_mem,
                           CL_TRUE,
@@ -379,12 +371,6 @@ backward (struct layer *lay)
                           0, lay->prev->size * sizeof (cl_float),
                           lay->prev->value_v,
                           0, NULL, NULL);
-
-    for (int j = 0; j < lay->prev->size; j++) {
-        lay->prev->gradient_v[j] *=
-            activation_derivative (lay->prev->activation,
-                                   lay->prev->value_v[j]);
-    }
 
 #else
     float *bias_delta_p, *delta_p, *bias_p, *weight_p, *gradient_p;
@@ -435,10 +421,17 @@ backward (struct layer *lay)
 static void
 release (struct layer *lay)
 {
-    g_clear_pointer (&lay->value_mem, clReleaseMemObject);
-    g_clear_pointer (&lay->gradient_mem, clReleaseMemObject);
-    g_clear_pointer (&lay->weight_mem, clReleaseMemObject);
-    g_clear_pointer (&lay->delta_mem, clReleaseMemObject);
+    for (int i = 0; i < N_KERNELS; i++) {
+        clReleaseKernel (lay->kernels[i]);
+    }
+
+    clReleaseMemObject (lay->value_mem);
+    clReleaseMemObject (lay->gradient_mem);
+    clReleaseMemObject (lay->weight_mem);
+    clReleaseMemObject (lay->delta_mem);
+    clReleaseMemObject (lay->bias_mem);
+    clReleaseMemObject (lay->bias_delta_mem);
+
     g_clear_pointer (&lay->value_v, g_free);
     g_clear_pointer (&lay->gradient_v, g_free);
     g_clear_pointer (&lay->weight_v, g_free);

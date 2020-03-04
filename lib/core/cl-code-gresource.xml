@@ -2,5 +2,6 @@
 <gresources>
     <gresource prefix="/gann/core/cl">
         <file>fully-layer.cl</file>
+        <file>output-layer.cl</file>
     </gresource>
 </gresources>
