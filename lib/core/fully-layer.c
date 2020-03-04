@@ -10,6 +10,8 @@ enum
 {
     KERNEL_REDUCE_INPUTS,
     KERNEL_BIAS_ACTIVATE,
+    KERNEL_CLEAR_INPUT_GRADIENT,
+    KERNEL_BIAS_BACKPROP,
 };
 
 static void forward (struct layer *lay);
@@ -104,11 +106,18 @@ layer_make_full (struct network *net,
     base->delta_mem = build_buffer (net, CL_MEM_READ_WRITE, weights);
     base->bias_delta_v = g_new (float, weights);
     base->bias_delta_mem = build_buffer (net, CL_MEM_READ_WRITE, weights);
-    base->program = build_program (net, base->prev->size, base->size);
+    base->program = build_program (net, base->prev->size, size);
     base->kernels[KERNEL_REDUCE_INPUTS] =
         clCreateKernel (base->program, "reduce_inputs", &err);
+    g_assert (err == CL_SUCCESS);
     base->kernels[KERNEL_BIAS_ACTIVATE] =
         clCreateKernel (base->program, "bias_activate", &err);
+    g_assert (err == CL_SUCCESS);
+    base->kernels[KERNEL_CLEAR_INPUT_GRADIENT] =
+        clCreateKernel (base->program, "clear_input_gradient", &err);
+    g_assert (err == CL_SUCCESS);
+    base->kernels[KERNEL_BIAS_BACKPROP] =
+        clCreateKernel (base->program, "bias_backprop", &err);
     g_assert (err == CL_SUCCESS);
     base->width = width;
     base->height = height;
@@ -215,6 +224,46 @@ forward (struct layer *lay)
 static void
 backward (struct layer *lay)
 {
+#ifdef USE_OPENCL
+    cl_int err;
+    size_t gsize, lsize;
+
+    lsize = 16;
+    gsize = ceil ((float) lay->prev->size / lsize) * lsize;
+    err = clSetKernelArg (lay->kernels[KERNEL_CLEAR_INPUT_GRADIENT], 0,
+                          sizeof (cl_mem), &lay->prev->gradient_mem);
+    err |= clEnqueueNDRangeKernel (lay->net->ctx->queue,
+                                   lay->kernels[KERNEL_CLEAR_INPUT_GRADIENT],
+                                   1, NULL,
+                                   &gsize, &lsize,
+                                   0, NULL, NULL);
+    g_assert (err == CL_SUCCESS);
+
+    lsize = 16;
+    gsize = ceil ((float) lay->size / lsize) * lsize;
+    err = clSetKernelArg (lay->kernels[KERNEL_BIAS_BACKPROP], 0,
+                          sizeof (cl_mem), &lay->gradient_mem);
+    err = clSetKernelArg (lay->kernels[KERNEL_BIAS_BACKPROP], 1,
+                          sizeof (cl_mem), &lay->bias_delta_mem);
+    err = clSetKernelArg (lay->kernels[KERNEL_BIAS_BACKPROP], 2,
+                          sizeof (cl_mem), &lay->bias_mem);
+    err = clSetKernelArg (lay->kernels[KERNEL_BIAS_BACKPROP], 3,
+                          sizeof (cl_float), &lay->net->rate);
+    err = clSetKernelArg (lay->kernels[KERNEL_BIAS_BACKPROP], 4,
+                          sizeof (cl_float), &lay->net->momentum);
+    err = clSetKernelArg (lay->kernels[KERNEL_BIAS_BACKPROP], 5,
+                          sizeof (cl_float), &lay->net->decay);
+    err |= clEnqueueNDRangeKernel (lay->net->ctx->queue,
+                                   lay->kernels[KERNEL_BIAS_BACKPROP],
+                                   1, NULL,
+                                   &gsize, &lsize,
+                                   0, NULL, NULL);
+    g_assert (err == CL_SUCCESS);
+
+    lsize = lay->size;
+    gsize = lay->size * lay->prev->size;
+
+#else
     float *bias_delta_p, *delta_p, *bias_p, *weight_p, *gradient_p;
     int i, j;
 
@@ -256,6 +305,7 @@ backward (struct layer *lay)
             activation_derivative (lay->prev->activation,
                                    lay->prev->value_v[j]);
     }
+#endif
 }
 
 static void

@@ -28,5 +28,31 @@ int global_id = get_global_id (0);
 float sum = value[global_id] + bias[global_id];
 
 sum = 1.0f / (1.0f + exp (-sum));
+if (global_id < OUTPUTS) {
 value[global_id] = sum;
+}
+}
+
+__kernel void clear_input_gradient (__global float *gradient) {
+    gradient[get_global_id (0)] = 0;
+}
+
+__kernel void bias_backprop (__global const float *gradient,
+                                      __global float *delta,
+                                      __global float *bias,
+                                      const float rate,
+                                      const float momentum,
+                                      const float decay)
+{
+    int gid = get_global_id (0);
+    float d = delta[gid] * momentum + gradient[gid] * rate * (1 - momentum);
+
+    delta[gid] = d;
+    bias[gid] = bias[gid] * decay + d;
+}
+
+__kernel void weight_backprop (__global const float *gradient,
+                                        __global float *delta,
+                                        __global float *value)
+{
 }
