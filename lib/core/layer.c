@@ -17,3 +17,13 @@ layer_free (struct layer *lay)
 
     g_free (lay);
 }
+
+cl_kernel
+layer_create_kernel (struct layer *lay,
+                     int id, const char *name)
+{
+    cl_int err;
+    lay->kernels[id] = clCreateKernel (lay->program, name, &err);
+    g_assert (err == CL_SUCCESS);
+    return lay->kernels[id];
+}

@@ -63,7 +63,8 @@ struct layer *layer_make_input (struct network *net,
 struct layer *layer_make_output (struct network *net);
 
 void layer_free (struct layer *lay);
-void layer_randomize (struct layer *lay);
+cl_kernel layer_create_kernel (struct layer *lay,
+                               int id, const char *name);
 
 void layer_output_set_truth (struct layer *lay,
                              const float *data,

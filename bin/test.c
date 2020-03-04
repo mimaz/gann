@@ -20,7 +20,7 @@ main (gint argc, gchar **argv)
     for (i = 0; i < 100000; i++) {
         p = rand () & 1;
         q = rand () & 1;
-        r = p ^ q;
+        r = p;
 
         gann_input_layer_set_input_floats (in, (gfloat) p, (gfloat) q, -1.0f);
         gann_output_layer_set_truth_floats (out, (gfloat) r, -1.0f);
