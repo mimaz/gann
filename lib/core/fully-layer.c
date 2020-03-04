@@ -16,60 +16,31 @@ static void forward (struct layer *lay);
 static void backward (struct layer *lay);
 static void release (struct layer *lay);
 
-static const char *forward_source = R"(
-__kernel void reduce_inputs (__global const float *input,
-                       __global const float *weight,
-                       __global float *value) {
-    __local float partial[INPUTS];
-
-    int local_id = get_local_id (0);
-    int global_id = get_global_id (0);
-    int group_id = get_group_id (0);
-
-    partial[local_id] = input[local_id] * weight[global_id];
-
-    for (int off = get_local_size (0) / 2; off > 0; off /= 2) {
-        barrier(CLK_LOCAL_MEM_FENCE);
-
-        if (local_id < off) {
-            partial[local_id] += partial[local_id + off];
-        }
-    }
-
-    if (local_id == 0) {
-        value[group_id] = partial[0];
-    }
-}
-
-__kernel void bias_activate (__global const float *bias,
-                        __global float *value) {
-    int global_id = get_global_id (0);
-
-    value[global_id] = ACTIVATION (value[global_id] + bias[global_id]);
-}
-)";
-
 static cl_program
 build_program (struct network *net,
-               const char *source,
                int inputs, int outputs)
 {
     cl_program prog;
     cl_int err;
-    char options[512], *log;
+    char *opts, *log;
     size_t log_size;
+    const char *src;
 
+    src = context_read_cl_code (net->ctx, "fully-layer.cl");
     prog = clCreateProgramWithSource (net->ctx->context,
-                                      1, &source,
+                                      1, &src,
                                       NULL, &err);
     g_assert (err == CL_SUCCESS);
 
-    snprintf (options, sizeof (options),
-              "-DINPUTS=%d -DOUTPUTS=%d -DACTIVATION(x)=\"x > 0 ? x : 0\" "
-              "-DDERIVATIVE(a)=\"a > 0 ? 1 : 0\"",
-              inputs, outputs);
+    opts = g_strdup_printf ("-DINPUTS=%d "
+                            "-DOUTPUTS=%d "
+                            "-DACTIVATION(x)=\"%s\" ",
+                            inputs,
+                            outputs,
+                            "x > 0 ? x : 0");
 
-    err = clBuildProgram (prog, 0, NULL, options, NULL, NULL);
+    err = clBuildProgram (prog, 0, NULL, opts, NULL, NULL);
+    g_free (opts);
 
     if (err != CL_SUCCESS) {
         clGetProgramBuildInfo (prog, net->ctx->device, 
@@ -79,12 +50,26 @@ build_program (struct network *net,
         clGetProgramBuildInfo (prog, net->ctx->device,
                                CL_PROGRAM_BUILD_LOG,
                                log_size, log, NULL);
-        g_message (log);
+        g_error (log);
         g_free (log);
-        g_assert (0);
     }
 
     return prog;
+}
+
+static cl_mem
+build_buffer (struct network *net,
+              cl_uint flags,
+              int value_count)
+{
+    cl_int err;
+    cl_mem mem;
+
+    mem = clCreateBuffer (net->ctx->context,
+                          flags, value_count * sizeof (cl_float),
+                          NULL, &err);
+    g_assert (err == CL_SUCCESS);
+    return mem;
 }
 
 struct layer *
@@ -110,43 +95,18 @@ layer_make_full (struct network *net,
     base->type = LAYER_FULLY;
     base->activation = activation;
     base->value_v = g_new (float, size);
-    base->value_mem = clCreateBuffer (net->ctx->context,
-                                      CL_MEM_READ_WRITE,
-                                      size * sizeof (cl_float),
-                                      NULL, &err);
-    g_assert (err == 0);
+    base->value_mem = build_buffer (net, CL_MEM_READ_WRITE, size);
     base->gradient_v = g_new (float, size);
-    base->gradient_mem = clCreateBuffer (net->ctx->context,
-                                         CL_MEM_READ_WRITE,
-                                         size * sizeof (cl_float),
-                                         NULL, &err);
-    g_assert (err == 0);
+    base->gradient_mem = build_buffer (net, CL_MEM_READ_WRITE, size);
     base->bias_v = g_new (float, size);
-    base->bias_mem = clCreateBuffer (net->ctx->context,
-                                     CL_MEM_READ_WRITE,
-                                     size * sizeof (cl_float),
-                                     NULL, &err);
-    g_assert (err == 0);
+    base->bias_mem = build_buffer (net, CL_MEM_READ_WRITE, size);
     base->weight_v = g_new (float, weights);
-    base->weight_mem = clCreateBuffer (net->ctx->context,
-                                       CL_MEM_READ_WRITE,
-                                       weights * sizeof (cl_float),
-                                       NULL, &err);
-    g_assert (err == 0);
+    base->weight_mem = build_buffer (net, CL_MEM_READ_WRITE, weights);
     base->delta_v = g_new (float, weights);
-    base->delta_mem = clCreateBuffer (net->ctx->context,
-                                      CL_MEM_READ_WRITE,
-                                      weights * sizeof (cl_float),
-                                      NULL, &err);
-    g_assert (err == 0);
+    base->delta_mem = build_buffer (net, CL_MEM_READ_WRITE, weights);
     base->bias_delta_v = g_new (float, weights);
-    base->bias_delta_mem = clCreateBuffer (net->ctx->context,
-                                           CL_MEM_READ_WRITE,
-                                           weights * sizeof (cl_float),
-                                           NULL, &err);
-    g_assert (err == 0);
-    base->program = build_program (net, forward_source,
-                                   base->prev->size, base->size);
+    base->bias_delta_mem = build_buffer (net, CL_MEM_READ_WRITE, weights);
+    base->program = build_program (net, base->prev->size, base->size);
     base->kernels[KERNEL_REDUCE_INPUTS] =
         clCreateKernel (base->program, "reduce_inputs", &err);
     base->kernels[KERNEL_BIAS_ACTIVATE] =

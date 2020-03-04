@@ -8,9 +8,8 @@ source = [
 ]
 
 resource = gnome.compile_resources(
-  'cl', 'cl-gresource.xml',
-  source_dir: 'cl',
-  c_name: 'cl',
+  'cl_code', 'cl-code-gresource.xml',
+  c_name: 'cl_code',
 )
 
 dependencies = [

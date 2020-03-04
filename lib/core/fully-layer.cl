@@ -9,7 +9,7 @@ int group_id = get_group_id (0);
 
 partial[local_id] = input[local_id] * weight[global_id];
 
-for  int off = get_local_size (0) / 2; off > 0; off /= 2) {
+for(int off = get_local_size (0) / 2; off > 0; off /= 2) {
 barrier(CLK_LOCAL_MEM_FENCE);
 
 if (local_id < off) {
