@@ -6,14 +6,8 @@
 void
 layer_free (struct layer *lay)
 {
-    int i;
-
     if (lay->release != NULL) {
         lay->release (lay);
-    }
-
-    for (i = 0; i < G_N_ELEMENTS (lay->kernels); i++) {
-        clReleaseKernel (lay->kernels[i]);
     }
 
     g_clear_pointer (&lay->value_v, g_free);

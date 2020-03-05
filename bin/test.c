@@ -17,7 +17,9 @@ main (gint argc, gchar **argv)
     gann_network_create_fully (net, 1, 1, 1, GANN_ACTIVATION_SIGMOID);
     out = gann_network_create_output (net);
 
-    for (i = 0; i < 100000; i++) {
+    g_object_unref (context);
+
+    for (i = 0; i < 100; i++) {
         p = rand () & 1;
         q = rand () & 1;
         r = p;
@@ -36,5 +38,4 @@ main (gint argc, gchar **argv)
     }
 
     g_object_unref (net);
-    g_object_unref (context);
 }
