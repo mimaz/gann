@@ -16,6 +16,8 @@ typedef struct {
     gint depth;
     GannActivation activation;
 
+    float *value_buff;
+
     struct layer *l;
 } GannLayerPrivate;
 
@@ -111,6 +113,7 @@ dispose (GObject *gobj)
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
 
     g_clear_weak_pointer (&p->network);
+    g_clear_pointer (&p->value_buff, g_free);
 
     G_OBJECT_CLASS (gann_layer_parent_class)->dispose (gobj);
 }
@@ -204,11 +207,17 @@ gann_layer_get_data (GannLayer *self,
 {
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
 
+    if (p->value_buff == NULL) {
+        p->value_buff = g_new (gfloat, p->l->size);
+    }
+
+    layer_load_value (p->l, p->value_buff, 0, p->l->size);
+
     if (size != NULL) {
         *size = p->l->size;
     }
 
-    return p->l->value_v;
+    return p->value_buff;
 }
 
 GannNetwork *

@@ -63,14 +63,8 @@ gann_input_layer_set_input (GannInputLayer *self,
                             const gfloat *data,
                             gsize datasize)
 {
-    struct layer *lay;
-
-    lay = gann_layer_get_core (GANN_LAYER (self));
-    g_assert (datasize == lay->size);
-
-    g_clear_pointer (&lay->value_v, g_free);
-
-    lay->value_v = g_memdup (data, datasize * sizeof (gfloat));
+    layer_input_set_data (gann_layer_get_core (GANN_LAYER (self)),
+                          data, datasize);
 }
 
 void

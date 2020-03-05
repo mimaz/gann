@@ -13,13 +13,14 @@ main (gint argc, gchar **argv)
     context = gann_context_new ();
     net = gann_network_new_full (context, 0.1f, 0.95f, 1.0f);
     in = gann_network_create_input (net, 1, 1, 2);
-    gann_network_create_fully (net, 1, 1, 6, GANN_ACTIVATION_SIGMOID);
+    gann_network_create_fully (net, 1, 1, 3, GANN_ACTIVATION_SIGMOID);
+    gann_network_create_fully (net, 1, 1, 4, GANN_ACTIVATION_SIGMOID);
     gann_network_create_fully (net, 1, 1, 1, GANN_ACTIVATION_SIGMOID);
     out = gann_network_create_output (net);
 
     g_object_unref (context);
 
-    for (i = 0; i < 100; i++) {
+    for (i = 0; i < 100000; i++) {
         p = rand () & 1;
         q = rand () & 1;
         r = p;

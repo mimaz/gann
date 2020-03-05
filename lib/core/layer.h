@@ -21,18 +21,15 @@ struct layer
     enum layer_type type;
     enum activation_type activation;
 
-    float *value_v;
-    cl_mem value_mem;
-    float *gradient_v;
-    cl_mem gradient_mem;
-    float *bias_v;
-    cl_mem bias_mem;
+    cl_mem loss_mem;
 
-    float *weight_v;
+    cl_mem value_mem;
+    cl_mem gradient_mem;
+    cl_mem bias_mem;
+    cl_mem truth_mem;
+
     cl_mem weight_mem;
-    float *delta_v;
     cl_mem delta_mem;
-    float *bias_delta_v;
     cl_mem bias_delta_mem;
 
     cl_program program;
@@ -63,8 +60,16 @@ struct layer *layer_make_input (struct network *net,
 struct layer *layer_make_output (struct network *net);
 
 void layer_free (struct layer *lay);
+void layer_load_value (struct layer *lay,
+                       float *buff,
+                       int offset,
+                       int count);
 cl_kernel layer_create_kernel (struct layer *lay,
                                int id, const char *name);
+
+void layer_input_set_data (struct layer *lay,
+                           const float *data,
+                           int size);
 
 void layer_output_set_truth (struct layer *lay,
                              const float *data,

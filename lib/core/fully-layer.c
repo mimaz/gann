@@ -72,17 +72,11 @@ layer_make_full (struct network *net,
     base->prev = prev;
     base->type = LAYER_FULLY;
     base->activation = activation;
-    base->value_v = g_new (float, size);
     base->value_mem = build_buffer (net, CL_MEM_READ_WRITE, size);
-    base->gradient_v = g_new (float, size);
     base->gradient_mem = build_buffer (net, CL_MEM_READ_WRITE, size);
-    base->bias_v = g_new (float, size);
     base->bias_mem = build_buffer (net, CL_MEM_READ_WRITE, size);
-    base->weight_v = g_new (float, weights);
     base->weight_mem = build_buffer (net, CL_MEM_READ_WRITE, weights);
-    base->delta_v = g_new (float, weights);
     base->delta_mem = build_buffer (net, CL_MEM_READ_WRITE, weights);
-    base->bias_delta_v = g_new (float, weights);
     base->bias_delta_mem = build_buffer (net, CL_MEM_READ_WRITE, weights);
     base->program = build_program (net, base->prev->size, size);
     base->width = width;
@@ -103,15 +97,45 @@ layer_make_full (struct network *net,
 
     network_push_layer (net, base);
 
+    g_autofree float *bias_v = g_new (float, size);
+    g_autofree float *bias_delta_v = g_new (float, size);
+    g_autofree float *delta_v = g_new (float, weights);
+    g_autofree float *weight_v = g_new (float, weights);
+
     for (i = 0; i < weights; i++) {
-        base->delta_v[i] = 0;
-        base->weight_v[i] = (float) rand () / RAND_MAX / prev->size;
+        delta_v[i] = 0;
+        weight_v[i] = (float) rand () / RAND_MAX / prev->size;
     }
 
     for (i = 0; i < size; i++) {
-        base->bias_v[i] = 0;
-        base->bias_delta_v[i] = 0;
+        bias_v[i] = 0;
+        bias_delta_v[i] = 0;
     }
+
+    clEnqueueWriteBuffer (net->ctx->queue,
+                          base->bias_mem,
+                          CL_TRUE,
+                          0, size * sizeof (cl_float),
+                          bias_v,
+                          0, NULL, NULL);
+    clEnqueueWriteBuffer (net->ctx->queue,
+                          base->bias_delta_mem,
+                          CL_TRUE,
+                          0, size * sizeof (cl_float),
+                          bias_delta_v,
+                          0, NULL, NULL);
+    clEnqueueWriteBuffer (net->ctx->queue,
+                          base->delta_mem,
+                          CL_TRUE,
+                          0, weights * sizeof (cl_float),
+                          delta_v,
+                          0, NULL, NULL);
+    clEnqueueWriteBuffer (net->ctx->queue,
+                          base->weight_mem,
+                          CL_TRUE,
+                          0, weights * sizeof (cl_float),
+                          weight_v,
+                          0, NULL, NULL);
 
     return base;
 }
@@ -119,24 +143,11 @@ layer_make_full (struct network *net,
 static void
 forward (struct layer *lay)
 {
-#ifdef USE_OPENCL
     cl_int err = CL_SUCCESS;
     size_t global_size, local_size;
 
     local_size = lay->prev->size;
     global_size = lay->size * local_size;
-    clEnqueueWriteBuffer (lay->net->ctx->queue,
-                          lay->bias_mem,
-                          CL_TRUE,
-                          0, lay->size * sizeof (cl_float),
-                          lay->bias_v,
-                          0, NULL, NULL);
-    clEnqueueWriteBuffer (lay->net->ctx->queue,
-                          lay->weight_mem,
-                          CL_TRUE,
-                          0, lay->weights * sizeof (cl_float),
-                          lay->weight_v,
-                          0, NULL, NULL);
     g_assert (err == CL_SUCCESS);
 
     err = clSetKernelArg (lay->kernels[KERNEL_REDUCE_INPUTS], 0,
@@ -151,7 +162,7 @@ forward (struct layer *lay)
                                    &global_size, &local_size,
                                    0, NULL, NULL);
     g_assert (err == CL_SUCCESS);
-    local_size = 16;
+    local_size = 256;
     global_size = ceil((float) lay->size / local_size) * local_size;
     err = clSetKernelArg (lay->kernels[KERNEL_BIAS_ACTIVATE], 0,
                           sizeof (cl_mem), &lay->bias_mem);
@@ -163,45 +174,15 @@ forward (struct layer *lay)
                                    &global_size, &local_size,
                                    0, NULL, NULL);
     g_assert (err == CL_SUCCESS);
-
-    clEnqueueReadBuffer (lay->net->ctx->queue,
-                         lay->value_mem,
-                         CL_TRUE,
-                         0, lay->size * sizeof (cl_float),
-                         lay->value_v, 0, NULL, NULL);
-
-#else
-    const float *input_p, *weight_p, *bias_p;
-    float sum, *value_p;
-
-    weight_p = lay->weight_v;
-    value_p = lay->value_v;
-    bias_p = lay->bias_v;
-
-    while (value_p < lay->value_v + lay->size) {
-        input_p = lay->prev->value_v;
-
-        sum = *bias_p++;
-
-        while (input_p < lay->prev->value_v + lay->prev->size) {
-            sum += *weight_p++ * *input_p++;
-        }
-
-        *value_p++ = activation_value (lay->activation, sum);
-    }
-
-    g_assert (weight_p == lay->weight_v + lay->weights);
-#endif
 }
 
 static void
 backward (struct layer *lay)
 {
-#ifdef USE_OPENCL
     cl_int err;
     size_t gsize, lsize;
 
-    lsize = 16;
+    lsize = 256;
     gsize = ceil ((float) lay->prev->size / lsize) * lsize;
     err = clSetKernelArg (lay->kernels[KERNEL_CLEAR_INPUT_GRADIENT], 0,
                           sizeof (cl_mem), &lay->prev->gradient_mem);
@@ -212,56 +193,7 @@ backward (struct layer *lay)
                                    0, NULL, NULL);
     g_assert (err == CL_SUCCESS);
 
-    clEnqueueWriteBuffer (lay->net->ctx->queue,
-                          lay->gradient_mem,
-                          CL_TRUE,
-                          0, lay->size * sizeof (cl_float),
-                          lay->gradient_v,
-                          0, NULL, NULL);
-    clEnqueueWriteBuffer (lay->net->ctx->queue,
-                          lay->bias_delta_mem,
-                          CL_TRUE,
-                          0, lay->size * sizeof (cl_float),
-                          lay->bias_delta_v,
-                          0, NULL, NULL);
-    clEnqueueWriteBuffer (lay->net->ctx->queue,
-                          lay->bias_mem,
-                          CL_TRUE,
-                          0, lay->size * sizeof (cl_float),
-                          lay->bias_v,
-                          0, NULL, NULL);
-    clEnqueueWriteBuffer (lay->net->ctx->queue,
-                          lay->value_mem,
-                          CL_TRUE,
-                          0, lay->size * sizeof (cl_float),
-                          lay->value_v,
-                          0, NULL, NULL);
-    clEnqueueWriteBuffer (lay->net->ctx->queue,
-                          lay->weight_mem,
-                          CL_TRUE,
-                          0, lay->weights * sizeof (cl_float),
-                          lay->weight_v,
-                          0, NULL, NULL);
-    clEnqueueWriteBuffer (lay->net->ctx->queue,
-                          lay->delta_mem,
-                          CL_TRUE,
-                          0, lay->weights * sizeof (cl_float),
-                          lay->delta_v,
-                          0, NULL, NULL);
-    clEnqueueWriteBuffer (lay->net->ctx->queue,
-                          lay->prev->gradient_mem,
-                          CL_TRUE,
-                          0, lay->prev->size * sizeof (cl_float),
-                          lay->prev->gradient_v,
-                          0, NULL, NULL);
-    clEnqueueWriteBuffer (lay->net->ctx->queue,
-                          lay->prev->value_mem,
-                          CL_TRUE,
-                          0, lay->prev->size * sizeof (cl_float),
-                          lay->prev->value_v,
-                          0, NULL, NULL);
-
-    lsize = 16;
+    lsize = 256;
     gsize = ceil ((float) lay->size / lsize) * lsize;
     err = clSetKernelArg (lay->kernels[KERNEL_BIAS_BACKPROP], 0,
                           sizeof (cl_mem), &lay->gradient_mem);
@@ -309,8 +241,8 @@ backward (struct layer *lay)
                                    0, NULL, NULL);
     g_assert (err == CL_SUCCESS);
 
-    lsize = 16;
-    gsize = ceil((float) lay->prev->size / 16) * 16;
+    lsize = 256;
+    gsize = ceil((float) lay->prev->size / 256) * 256;
 
     err = clSetKernelArg (lay->kernels[KERNEL_DERIVE_GRADIENT], 0,
                           sizeof (cl_mem), &lay->prev->value_mem);
@@ -322,118 +254,9 @@ backward (struct layer *lay)
                                    &gsize, &lsize,
                                    0, NULL, NULL);
     g_assert (err == CL_SUCCESS);
-
-    clEnqueueReadBuffer (lay->net->ctx->queue,
-                          lay->gradient_mem,
-                          CL_TRUE,
-                          0, lay->size * sizeof (cl_float),
-                          lay->gradient_v,
-                          0, NULL, NULL);
-    clEnqueueReadBuffer (lay->net->ctx->queue,
-                          lay->bias_delta_mem,
-                          CL_TRUE,
-                          0, lay->size * sizeof (cl_float),
-                          lay->bias_delta_v,
-                          0, NULL, NULL);
-    clEnqueueReadBuffer (lay->net->ctx->queue,
-                          lay->bias_mem,
-                          CL_TRUE,
-                          0, lay->size * sizeof (cl_float),
-                          lay->bias_v,
-                          0, NULL, NULL);
-    clEnqueueReadBuffer (lay->net->ctx->queue,
-                          lay->value_mem,
-                          CL_TRUE,
-                          0, lay->size * sizeof (cl_float),
-                          lay->value_v,
-                          0, NULL, NULL);
-    clEnqueueReadBuffer (lay->net->ctx->queue,
-                          lay->weight_mem,
-                          CL_TRUE,
-                          0, lay->weights * sizeof (cl_float),
-                          lay->weight_v,
-                          0, NULL, NULL);
-    clEnqueueReadBuffer (lay->net->ctx->queue,
-                          lay->delta_mem,
-                          CL_TRUE,
-                          0, lay->weights * sizeof (cl_float),
-                          lay->delta_v,
-                          0, NULL, NULL);
-    clEnqueueReadBuffer (lay->net->ctx->queue,
-                          lay->prev->gradient_mem,
-                          CL_TRUE,
-                          0, lay->prev->size * sizeof (cl_float),
-                          lay->prev->gradient_v,
-                          0, NULL, NULL);
-    clEnqueueReadBuffer (lay->net->ctx->queue,
-                          lay->prev->value_mem,
-                          CL_TRUE,
-                          0, lay->prev->size * sizeof (cl_float),
-                          lay->prev->value_v,
-                          0, NULL, NULL);
-
-#else
-    float *bias_delta_p, *delta_p, *bias_p, *weight_p, *gradient_p;
-    int i, j;
-
-    weight_p = lay->weight_v;
-    bias_p = lay->bias_v;
-    bias_delta_p = lay->bias_delta_v;
-    delta_p = lay->delta_v;
-    gradient_p = lay->gradient_v;
-
-    for (j = 0; j < lay->prev->size; j++) {
-        lay->prev->gradient_v[j] = 0;
-    }
-
-    for (i = 0; i < lay->size; i++) {
-        *bias_delta_p = *bias_delta_p * lay->net->momentum
-            + *gradient_p * lay->net->rate * (1 - lay->net->momentum);
-        *bias_p = *bias_p * lay->net->decay + *bias_delta_p;
-
-        bias_delta_p++;
-        bias_p++;
-
-        for (j = 0; j < lay->prev->size; j++) {
-            *delta_p = *delta_p
-                * lay->net->momentum
-                + *gradient_p * lay->net->rate * (1 - lay->net->momentum)
-                * lay->prev->value_v[j];
-            *weight_p = *weight_p * lay->net->decay + *delta_p;
-
-            lay->prev->gradient_v[j] += *gradient_p * *weight_p;
-
-            weight_p++;
-            delta_p++;
-        }
-
-        gradient_p++;
-    }
-
-    for (j = 0; j < lay->prev->size; j++) {
-        lay->prev->gradient_v[j] *=
-            activation_derivative (lay->prev->activation,
-                                   lay->prev->value_v[j]);
-    }
-#endif
 }
 
 static void
 release (struct layer *lay)
 {
-    for (int i = 0; i < N_KERNELS; i++) {
-        clReleaseKernel (lay->kernels[i]);
-    }
-
-    clReleaseMemObject (lay->value_mem);
-    clReleaseMemObject (lay->gradient_mem);
-    clReleaseMemObject (lay->weight_mem);
-    clReleaseMemObject (lay->delta_mem);
-    clReleaseMemObject (lay->bias_mem);
-    clReleaseMemObject (lay->bias_delta_mem);
-
-    g_clear_pointer (&lay->value_v, g_free);
-    g_clear_pointer (&lay->gradient_v, g_free);
-    g_clear_pointer (&lay->weight_v, g_free);
-    g_clear_pointer (&lay->delta_v, g_free);
 }

@@ -20,20 +20,16 @@ layer_make_input (struct network *net,
     base->net = net;
     base->type = LAYER_INPUT;
     base->activation = ACTIVATION_LINEAR;
-    base->value_v = g_new (float, size);
     base->value_mem = clCreateBuffer (net->ctx->context,
                                       CL_MEM_READ_WRITE,
                                       size * sizeof (cl_float),
                                       NULL, &err);
     g_assert (err == CL_SUCCESS);
-    base->gradient_v = g_new (float, size);
     base->gradient_mem = clCreateBuffer (net->ctx->context,
                                          CL_MEM_READ_WRITE,
                                          size * sizeof (cl_float),
                                          NULL, &err);
     g_assert (err == CL_SUCCESS);
-    base->weight_v = NULL;
-    base->delta_v = NULL;
     base->width = width;
     base->height = height;
     base->depth = depth;
@@ -48,15 +44,25 @@ layer_make_input (struct network *net,
     return base;
 }
 
+void
+layer_input_set_data (struct layer *lay,
+                      const float *data,
+                      int size)
+{
+    g_assert (lay->type == LAYER_INPUT);
+    g_assert (size == lay->size);
+
+    clEnqueueWriteBuffer (lay->net->ctx->queue,
+                          lay->value_mem,
+                          CL_FALSE,
+                          0, size * sizeof (cl_float),
+                          data,
+                          0, NULL, NULL);
+}
+
 static void
 forward (struct layer *lay)
 {
-    clEnqueueWriteBuffer (lay->net->ctx->queue,
-                          lay->value_mem,
-                          CL_TRUE,
-                          0, lay->size * sizeof (cl_float),
-                          lay->value_v,
-                          0, NULL, NULL);
 }
 
 static void
@@ -67,6 +73,4 @@ backward (struct layer *lay)
 static void
 release (struct layer *lay)
 {
-    g_clear_pointer (&lay->value_v, g_free);
-    g_clear_pointer (&lay->gradient_v, g_free);
 }

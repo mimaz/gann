@@ -49,21 +49,14 @@ release_program (gpointer prog)
 void
 context_free (struct context *ctx)
 {
-    g_message ("context_free");
     g_slist_free_full (ctx->netlist, release_network);
-    g_message ("context_free");
     g_slist_free_full (ctx->programlist, release_program);
-    g_message ("context_free");
 
     clReleaseCommandQueue (ctx->queue);
-    g_message ("context_free");
     clReleaseContext (ctx->context);
-    g_message ("context_free");
 
     g_hash_table_unref (ctx->codetable);
-    g_message ("context_free");
     g_free (ctx);
-    g_message ("context_free");
 }
 
 const char *

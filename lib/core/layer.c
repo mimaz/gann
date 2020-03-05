@@ -10,12 +10,21 @@ layer_free (struct layer *lay)
         lay->release (lay);
     }
 
-    g_clear_pointer (&lay->value_v, g_free);
-    g_clear_pointer (&lay->gradient_v, g_free);
-    g_clear_pointer (&lay->weight_v, g_free);
-    g_clear_pointer (&lay->delta_v, g_free);
-
     g_free (lay);
+}
+
+void
+layer_load_value (struct layer *lay,
+                  float *buff,
+                  int offset,
+                  int count)
+{
+    clEnqueueReadBuffer (lay->net->ctx->queue,
+                         lay->value_mem,
+                         CL_TRUE,
+                         offset * sizeof (cl_float),
+                         count * sizeof (cl_float),
+                         buff, 0, NULL, NULL);
 }
 
 cl_kernel

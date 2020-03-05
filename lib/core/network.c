@@ -93,7 +93,7 @@ network_backward (struct network *net)
     for (i = 0; i < count; i++) {
         lay = network_layer (net, i);
         for (j = 0; j < lay->size; j++) {
-            lay->gradient_v[j] = 0;
+            /* lay->gradient_v[j] = 0; */
         }
     }
 

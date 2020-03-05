@@ -58,11 +58,8 @@ gann_output_layer_set_truth (GannOutputLayer *self,
                              const gfloat *data,
                              gsize datasize)
 {
-    struct layer *core;
-
-    core = gann_layer_get_core (GANN_LAYER (self));
-
-    layer_output_set_truth (core, data, datasize);
+    layer_output_set_truth (gann_layer_get_core (GANN_LAYER (self)),
+                            data, datasize);
 }
 
 void
