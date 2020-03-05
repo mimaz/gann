@@ -27,12 +27,35 @@ layer_load_value (struct layer *lay,
                          buff, 0, NULL, NULL);
 }
 
-cl_kernel
+void
 layer_create_kernel (struct layer *lay,
-                     int id, const char *name)
+                     cl_kernel *handle,
+                     const char *name)
+{
+    cl_kernel kern;
+    cl_int err;
+
+    kern = clCreateKernel (lay->program, name, &err);
+    g_assert (err == CL_SUCCESS);
+
+    *handle = kern;
+}
+
+void
+layer_create_buffer (struct layer *lay,
+                     cl_mem *handle,
+                     int size,
+                     int flags)
 {
     cl_int err;
-    lay->kernels[id] = clCreateKernel (lay->program, name, &err);
+    cl_mem mem;
+
+    mem = clCreateBuffer (lay->net->ctx->context,
+                          flags,
+                          size * sizeof (cl_float),
+                          NULL, &err);
+
     g_assert (err == CL_SUCCESS);
-    return lay->kernels[id];
+
+    *handle = mem;
 }

@@ -21,12 +21,9 @@ struct layer
     enum layer_type type;
     enum activation_type activation;
 
-    cl_mem loss_mem;
-
     cl_mem value_mem;
     cl_mem gradient_mem;
     cl_mem bias_mem;
-    cl_mem truth_mem;
 
     cl_mem weight_mem;
     cl_mem delta_mem;
@@ -44,8 +41,6 @@ struct layer
     void (*forward) (struct layer *lay);
     void (*backward) (struct layer *lay);
     void (*release) (struct layer *lay);
-    void (*loss) (struct layer *lay);
-    void (*initialize) (struct layer *lay);
 };
 
 struct layer *layer_make_convolution (struct network *net,
@@ -64,8 +59,13 @@ void layer_load_value (struct layer *lay,
                        float *buff,
                        int offset,
                        int count);
-cl_kernel layer_create_kernel (struct layer *lay,
-                               int id, const char *name);
+void layer_create_kernel (struct layer *lay,
+                          cl_kernel *handle,
+                          const char *name);
+void layer_create_buffer (struct layer *lay,
+                          cl_mem *handle,
+                          int size,
+                          int flags);
 
 void layer_input_set_data (struct layer *lay,
                            const float *data,

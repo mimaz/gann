@@ -6,15 +6,9 @@
 
 #define USE_OPENCL
 
-enum
+struct fully_layer
 {
-    KERNEL_REDUCE_INPUTS,
-    KERNEL_BIAS_ACTIVATE,
-    KERNEL_CLEAR_INPUT_GRADIENT,
-    KERNEL_BIAS_BACKPROP,
-    KERNEL_WEIGHT_BACKPROP,
-    KERNEL_DERIVE_GRADIENT,
-    N_KERNELS,
+    struct layer base;
 };
 
 static void forward (struct layer *lay);

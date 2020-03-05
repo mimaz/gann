@@ -11,10 +11,9 @@ main (gint argc, gchar **argv)
 
     srand(0);
     context = gann_context_new ();
-    net = gann_network_new_full (context, 0.1f, 0.95f, 1.0f);
+    net = gann_network_new_full (context, 0.01f, 0.99f, 1.0f);
     in = gann_network_create_input (net, 1, 1, 2);
-    gann_network_create_fully (net, 1, 1, 3, GANN_ACTIVATION_SIGMOID);
-    gann_network_create_fully (net, 1, 1, 4, GANN_ACTIVATION_SIGMOID);
+    gann_network_create_fully (net, 1, 1, 16, GANN_ACTIVATION_SIGMOID);
     gann_network_create_fully (net, 1, 1, 1, GANN_ACTIVATION_SIGMOID);
     out = gann_network_create_output (net);
 

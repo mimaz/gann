@@ -1,17 +1,15 @@
-__kernel void calc_error (__global const float *truth,
-                            __global const float *value,
-                            __global float *gradient,
-                            __global float *prev_gradient,
-                            __global float *out_loss)
+__kernel void backprop (__global const float *truth_v,
+                        __global const float *value_v,
+                        __global float *prev_gradient_v,
+                        __global float *loss_p)
 {
     __local float local_loss[OUTPUTS];
     int gid, lid, off;
-    float sub;
+    float sub, loss;
 
     gid = get_global_id (0);
     lid = get_local_id (0);
-    sub = truth[gid] - value[gid];
-    gradient[gid] = sub;
+    sub = truth_v[gid] - value_v[gid];
 
     local_loss[lid] = sub * sub;
 
@@ -23,9 +21,12 @@ __kernel void calc_error (__global const float *truth,
         barrier(CLK_LOCAL_MEM_FENCE);
     }
 
-    prev_gradient[lid] = sub * local_loss[0];
-
     if (lid == 0) {
-        out_loss[0] = sqrt (local_loss[0]);
+        local_loss[0] = sqrt (local_loss[0]);
+        loss_p[0] = local_loss[0];
     }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    prev_gradient_v[lid] = sub * local_loss[0];
 }

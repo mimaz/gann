@@ -1,10 +1,14 @@
 #include "layer.h"
 #include "network.h"
 
-enum
+struct output_layer
 {
-    K_CALC_ERROR,
-    N_KERNELS,
+    struct layer base;
+    cl_mem truth_mem;
+    cl_mem loss_mem;
+    cl_event truth_event;
+    cl_kernel backprop_kern;
+    float loss;
 };
 
 static void forward (struct layer *lay);
@@ -14,18 +18,20 @@ static void release (struct layer *lay);
 struct layer *
 layer_make_output (struct network *net)
 {
+    struct output_layer *out;
     struct layer *base, *prev;
     int size;
-    g_autofree char *options;
+    char options[128];
     cl_program program;
-    cl_int err;
 
-    base = g_new0 (struct layer, 1);
+    out = g_new0 (struct output_layer, 1);
+    base = (struct layer *) out;
     prev = network_layer_last (net);
     size = prev->width * prev->height * prev->depth;
 
-    options = g_strdup_printf ("-DINPUTS=%d -DOUTPUTS=%d",
-                               prev->size, size);
+    g_snprintf (options, sizeof (options),
+                "-DINPUTS=%d -DOUTPUTS=%d",
+                prev->size, size);
     program = context_build_program (net->ctx,
                                      options,
                                      "output-layer.cl",
@@ -35,24 +41,6 @@ layer_make_output (struct network *net)
     base->prev = prev;
     base->type = LAYER_OUTPUT;
     base->activation = ACTIVATION_LINEAR;
-    base->value_mem = clCreateBuffer (net->ctx->context,
-                                      CL_MEM_READ_WRITE,
-                                      size * sizeof (cl_float),
-                                      NULL, &err);
-    g_assert (err == CL_SUCCESS);
-    base->gradient_mem = clCreateBuffer (net->ctx->context,
-                                         CL_MEM_READ_WRITE,
-                                         size * sizeof (cl_float),
-                                         NULL, &err);
-    g_assert (err == CL_SUCCESS);
-    base->truth_mem = clCreateBuffer (net->ctx->context,
-                                      CL_MEM_READ_ONLY,
-                                      size * sizeof (cl_float),
-                                      NULL, &err);
-    g_assert (err == CL_SUCCESS);
-    base->weight_mem = 0;
-    base->delta_mem = 0;
-    base->bias_delta_mem = 0;
     base->program = program;
     base->width = prev->width;
     base->height = prev->height;
@@ -63,12 +51,13 @@ layer_make_output (struct network *net)
     base->backward = backward;
     base->release = release;
 
-    base->loss_mem = clCreateBuffer (net->ctx->context,
-                                    CL_MEM_READ_WRITE,
-                                    sizeof (cl_float),
-                                    NULL, &err);
-
-    layer_create_kernel (base, K_CALC_ERROR, "calc_error");
+    layer_create_buffer (base, &base->value_mem, size,
+                         CL_MEM_READ_WRITE);
+    layer_create_buffer (base, &out->truth_mem, size,
+                         CL_MEM_READ_ONLY);
+    layer_create_buffer (base, &out->loss_mem, 1,
+                         CL_MEM_WRITE_ONLY);
+    layer_create_kernel (base, &out->backprop_kern, "backprop");
 
     network_push_layer (net, base);
 
@@ -80,60 +69,64 @@ layer_output_set_truth (struct layer *lay,
                         const float *data,
                         int size)
 {
+    struct output_layer *out;
+
     g_assert (lay->type == LAYER_OUTPUT);
     g_assert (lay->size == size);
 
+    out = (struct output_layer *) lay;
+
     clEnqueueWriteBuffer (lay->net->ctx->queue,
-                          lay->truth_mem,
+                          out->truth_mem,
                           CL_FALSE,
                           0, size * sizeof (cl_float),
-                          data,
-                          0, NULL, NULL);
+                          data, 0, NULL,
+                          &out->truth_event);
 }
 
 static void
 forward (struct layer *lay)
 {
+    g_assert (lay->type == LAYER_OUTPUT);
     g_assert (lay->size == lay->prev->size);
+
     lay->value_mem = lay->prev->value_mem;
 }
 
 static void
 backward (struct layer *lay)
 {
-    g_assert (lay->size == lay->prev->size);
-
+    struct output_layer *out;
+    size_t globsiz, locsiz;
+    cl_kernel kern;
     cl_int err;
-    size_t globsize, locsize;
 
+    g_assert (lay->type == LAYER_OUTPUT);
     g_assert (lay->size == lay->prev->size);
 
-    err = clSetKernelArg (lay->kernels[K_CALC_ERROR], 0,
-                          sizeof (cl_mem), &lay->truth_mem);
-    err |= clSetKernelArg (lay->kernels[K_CALC_ERROR], 1,
-                           sizeof (cl_mem), &lay->value_mem);
-    err |= clSetKernelArg (lay->kernels[K_CALC_ERROR], 2,
-                           sizeof (cl_mem), &lay->gradient_mem);
-    err |= clSetKernelArg (lay->kernels[K_CALC_ERROR], 3,
-                           sizeof (cl_mem), &lay->prev->gradient_mem);
-    err |= clSetKernelArg (lay->kernels[K_CALC_ERROR], 4,
-                           sizeof (cl_mem), &lay->loss_mem);
+    out = (struct output_layer *) lay;
+    kern = out->backprop_kern;
 
-    locsize = lay->size;
-    globsize = locsize;
-    err |= clEnqueueNDRangeKernel (lay->net->ctx->queue,
-                                   lay->kernels[K_CALC_ERROR],
-                                    1, NULL,
-                                    &globsize, &locsize,
-                                    0, NULL, NULL);
+    clSetKernelArg (kern, 0, sizeof (cl_mem), &out->truth_mem);
+    clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->value_mem);
+    clSetKernelArg (kern, 2, sizeof (cl_mem), &lay->prev->gradient_mem);
+    clSetKernelArg (kern, 3, sizeof (cl_mem), &out->loss_mem);
 
-    float loss;
+    locsiz = lay->size;
+    globsiz = locsiz;
+    err = clEnqueueNDRangeKernel (lay->net->ctx->queue,
+                                  kern, 1, NULL,
+                                  &globsiz, &locsiz,
+                                  1, &out->truth_event,
+                                  NULL);
+    g_assert (err == CL_SUCCESS);
+
     clEnqueueReadBuffer (lay->net->ctx->queue,
-                         lay->loss_mem,
-                         CL_FALSE,
+                         out->loss_mem,
+                         CL_TRUE,
                          0, sizeof (cl_float),
-                         &loss, 0, NULL, NULL);
-    lay->net->loss = loss;
+                         &out->loss, 0, NULL, NULL);
+    lay->net->loss = out->loss;
 }
 
 static void
