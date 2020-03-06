@@ -9,6 +9,12 @@
 struct fully_layer
 {
     struct layer base;
+    cl_kernel reduce_inputs;
+    cl_kernel bias_activate;
+    cl_kernel clear_input_gradient;
+    cl_kernel bias_backprop;
+    cl_kernel weight_backprop;
+    cl_kernel derive_gradient;
 };
 
 static void forward (struct layer *lay);
@@ -51,12 +57,14 @@ layer_make_full (struct network *net,
                  enum activation_type activation,
                  int width, int height, int depth)
 {
+    struct fully_layer *fully;
     struct layer *base, *prev;
     int size, weights, i;
 
     g_assert (sizeof (cl_float) == sizeof (gfloat));
 
-    base = g_new0 (struct layer, 1);
+    fully = g_new0 (struct fully_layer, 1);
+    base = (struct layer *) fully;
     prev = network_layer_last (net);
 
     size = width * height * depth;
@@ -82,12 +90,12 @@ layer_make_full (struct network *net,
     base->backward = backward;
     base->release = release;
 
-    layer_create_kernel (base, KERNEL_REDUCE_INPUTS, "reduce_inputs");
-    layer_create_kernel (base, KERNEL_BIAS_ACTIVATE, "bias_activate");
-    layer_create_kernel (base, KERNEL_CLEAR_INPUT_GRADIENT, "clear_input_gradient");
-    layer_create_kernel (base, KERNEL_BIAS_BACKPROP, "bias_backprop");
-    layer_create_kernel (base, KERNEL_WEIGHT_BACKPROP, "weight_backprop");
-    layer_create_kernel (base, KERNEL_DERIVE_GRADIENT, "derive_gradient");
+    layer_create_kernel (base, &fully->reduce_inputs, "reduce_inputs");
+    layer_create_kernel (base, &fully->bias_activate, "bias_activate");
+    layer_create_kernel (base, &fully->clear_input_gradient, "clear_input_gradient");
+    layer_create_kernel (base, &fully->bias_backprop, "bias_backprop");
+    layer_create_kernel (base, &fully->weight_backprop, "weight_backprop");
+    layer_create_kernel (base, &fully->derive_gradient, "derive_gradient");
 
     network_push_layer (net, base);
 
@@ -137,116 +145,108 @@ layer_make_full (struct network *net,
 static void
 forward (struct layer *lay)
 {
-    cl_int err = CL_SUCCESS;
+    struct fully_layer *fully;
+    cl_int err;
     size_t global_size, local_size;
+    cl_kernel kern;
+
+    g_assert (lay->type == LAYER_FULLY);
+
+    fully = (struct fully_layer *) lay;
 
     local_size = lay->prev->size;
     global_size = lay->size * local_size;
+    kern = fully->reduce_inputs;
+
+    clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->prev->value_mem);
+    clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->weight_mem);
+    clSetKernelArg (kern, 2, sizeof (cl_mem), &lay->value_mem);
+    err = clEnqueueNDRangeKernel (lay->net->ctx->queue,
+                                  kern, 1, NULL,
+                                  &global_size, &local_size,
+                                  0, NULL, NULL);
     g_assert (err == CL_SUCCESS);
 
-    err = clSetKernelArg (lay->kernels[KERNEL_REDUCE_INPUTS], 0,
-                          sizeof (cl_mem), &lay->prev->value_mem);
-    err |= clSetKernelArg (lay->kernels[KERNEL_REDUCE_INPUTS], 1,
-                           sizeof (cl_mem), &lay->weight_mem);
-    err |= clSetKernelArg (lay->kernels[KERNEL_REDUCE_INPUTS], 2,
-                           sizeof (cl_mem), &lay->value_mem);
-    err |= clEnqueueNDRangeKernel (lay->net->ctx->queue,
-                                   lay->kernels[KERNEL_REDUCE_INPUTS],
-                                   1, NULL,
-                                   &global_size, &local_size,
-                                   0, NULL, NULL);
-    g_assert (err == CL_SUCCESS);
     local_size = 256;
     global_size = ceil((float) lay->size / local_size) * local_size;
-    err = clSetKernelArg (lay->kernels[KERNEL_BIAS_ACTIVATE], 0,
-                          sizeof (cl_mem), &lay->bias_mem);
-    err |= clSetKernelArg (lay->kernels[KERNEL_BIAS_ACTIVATE], 1,
-                           sizeof (cl_mem), &lay->value_mem);
-    err |= clEnqueueNDRangeKernel (lay->net->ctx->queue,
-                                   lay->kernels[KERNEL_BIAS_ACTIVATE],
-                                   1, NULL,
-                                   &global_size, &local_size,
-                                   0, NULL, NULL);
+    kern = fully->bias_activate;
+
+    clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->bias_mem);
+    clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->value_mem);
+    err = clEnqueueNDRangeKernel (lay->net->ctx->queue,
+                                  kern, 1, NULL,
+                                  &global_size, &local_size,
+                                  0, NULL, NULL);
     g_assert (err == CL_SUCCESS);
 }
 
 static void
 backward (struct layer *lay)
 {
-    cl_int err;
+    struct fully_layer *fully;
     size_t gsize, lsize;
+    cl_kernel kern;
+    cl_int err;
 
+    g_assert (lay->type == LAYER_FULLY);
+
+    fully = (struct fully_layer *) lay;
     lsize = 256;
     gsize = ceil ((float) lay->prev->size / lsize) * lsize;
-    err = clSetKernelArg (lay->kernels[KERNEL_CLEAR_INPUT_GRADIENT], 0,
-                          sizeof (cl_mem), &lay->prev->gradient_mem);
-    err |= clEnqueueNDRangeKernel (lay->net->ctx->queue,
-                                   lay->kernels[KERNEL_CLEAR_INPUT_GRADIENT],
-                                   1, NULL,
-                                   &gsize, &lsize,
-                                   0, NULL, NULL);
+    kern = fully->clear_input_gradient;
+
+    clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->prev->gradient_mem);
+    err = clEnqueueNDRangeKernel (lay->net->ctx->queue,
+                                  kern, 1, NULL,
+                                  &gsize, &lsize,
+                                  0, NULL, NULL);
     g_assert (err == CL_SUCCESS);
 
     lsize = 256;
     gsize = ceil ((float) lay->size / lsize) * lsize;
-    err = clSetKernelArg (lay->kernels[KERNEL_BIAS_BACKPROP], 0,
-                          sizeof (cl_mem), &lay->gradient_mem);
-    err = clSetKernelArg (lay->kernels[KERNEL_BIAS_BACKPROP], 1,
-                          sizeof (cl_mem), &lay->bias_delta_mem);
-    err = clSetKernelArg (lay->kernels[KERNEL_BIAS_BACKPROP], 2,
-                          sizeof (cl_mem), &lay->bias_mem);
-    err = clSetKernelArg (lay->kernels[KERNEL_BIAS_BACKPROP], 3,
-                          sizeof (cl_float), &lay->net->rate);
-    err = clSetKernelArg (lay->kernels[KERNEL_BIAS_BACKPROP], 4,
-                          sizeof (cl_float), &lay->net->momentum);
-    err = clSetKernelArg (lay->kernels[KERNEL_BIAS_BACKPROP], 5,
-                          sizeof (cl_float), &lay->net->decay);
-    err |= clEnqueueNDRangeKernel (lay->net->ctx->queue,
-                                   lay->kernels[KERNEL_BIAS_BACKPROP],
-                                   1, NULL,
-                                   &gsize, &lsize,
-                                   0, NULL, NULL);
+    kern = fully->bias_backprop;
+
+    clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->gradient_mem);
+    clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->bias_delta_mem);
+    clSetKernelArg (kern, 2, sizeof (cl_mem), &lay->bias_mem);
+    clSetKernelArg (kern, 3, sizeof (cl_float), &lay->net->rate);
+    clSetKernelArg (kern, 4, sizeof (cl_float), &lay->net->momentum);
+    clSetKernelArg (kern, 5, sizeof (cl_float), &lay->net->decay);
+    err = clEnqueueNDRangeKernel (lay->net->ctx->queue,
+                                  kern, 1, NULL,
+                                  &gsize, &lsize,
+                                  0, NULL, NULL);
     g_assert (err == CL_SUCCESS);
 
     lsize = lay->size;
     gsize = lay->size * lay->prev->size;
-    err = clSetKernelArg (lay->kernels[KERNEL_WEIGHT_BACKPROP], 0,
-                          sizeof (cl_mem), &lay->gradient_mem);
-    err |= clSetKernelArg (lay->kernels[KERNEL_WEIGHT_BACKPROP], 1,
-                           sizeof (cl_mem), &lay->delta_mem);
-    err |= clSetKernelArg (lay->kernels[KERNEL_WEIGHT_BACKPROP], 2,
-                           sizeof (cl_mem), &lay->weight_mem);
-    err |= clSetKernelArg (lay->kernels[KERNEL_WEIGHT_BACKPROP], 3,
-                           sizeof (cl_mem), &lay->value_mem);
-    err |= clSetKernelArg (lay->kernels[KERNEL_WEIGHT_BACKPROP], 4,
-                           sizeof (cl_mem), &lay->prev->gradient_mem);
-    err |= clSetKernelArg (lay->kernels[KERNEL_WEIGHT_BACKPROP], 5,
-                           sizeof (cl_mem), &lay->prev->value_mem);
-    err |= clSetKernelArg (lay->kernels[KERNEL_WEIGHT_BACKPROP], 6,
-                           sizeof (cl_float), &lay->net->rate);
-    err |= clSetKernelArg (lay->kernels[KERNEL_WEIGHT_BACKPROP], 7,
-                           sizeof (cl_float), &lay->net->momentum);
-    err |= clSetKernelArg (lay->kernels[KERNEL_WEIGHT_BACKPROP], 8,
-                           sizeof (cl_float), &lay->net->decay);
+    kern = fully->weight_backprop;
+
+    clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->gradient_mem);
+    clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->delta_mem);
+    clSetKernelArg (kern, 2, sizeof (cl_mem), &lay->weight_mem);
+    clSetKernelArg (kern, 3, sizeof (cl_mem), &lay->value_mem);
+    clSetKernelArg (kern, 4, sizeof (cl_mem), &lay->prev->gradient_mem);
+    clSetKernelArg (kern, 5, sizeof (cl_mem), &lay->prev->value_mem);
+    clSetKernelArg (kern, 6, sizeof (cl_float), &lay->net->rate);
+    clSetKernelArg (kern, 7, sizeof (cl_float), &lay->net->momentum);
+    clSetKernelArg (kern, 8, sizeof (cl_float), &lay->net->decay);
     err |= clEnqueueNDRangeKernel (lay->net->ctx->queue,
-                                   lay->kernels[KERNEL_WEIGHT_BACKPROP],
-                                   1, NULL,
+                                   kern, 1, NULL,
                                    &gsize, &lsize,
                                    0, NULL, NULL);
     g_assert (err == CL_SUCCESS);
 
     lsize = 256;
     gsize = ceil((float) lay->prev->size / 256) * 256;
+    kern = fully->derive_gradient;
 
-    err = clSetKernelArg (lay->kernels[KERNEL_DERIVE_GRADIENT], 0,
-                          sizeof (cl_mem), &lay->prev->value_mem);
-    err |= clSetKernelArg (lay->kernels[KERNEL_DERIVE_GRADIENT], 1,
-                          sizeof (cl_mem), &lay->prev->gradient_mem);
-    err |= clEnqueueNDRangeKernel (lay->net->ctx->queue,
-                                   lay->kernels[KERNEL_DERIVE_GRADIENT],
-                                   1, NULL,
-                                   &gsize, &lsize,
-                                   0, NULL, NULL);
+    err = clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->prev->value_mem);
+    clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->prev->gradient_mem);
+    clEnqueueNDRangeKernel (lay->net->ctx->queue,
+                            kern, 1, NULL,
+                            &gsize, &lsize,
+                            0, NULL, NULL);
     g_assert (err == CL_SUCCESS);
 }
 
