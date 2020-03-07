@@ -124,6 +124,8 @@ constructed (GObject *gobj)
     GannLayer *self = GANN_LAYER (gobj);
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
 
+    p->value_buff = NULL;
+
     G_OBJECT_CLASS (gann_layer_parent_class)->constructed (gobj);
 
     g_assert_nonnull (p->l);

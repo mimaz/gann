@@ -300,8 +300,8 @@ gann_network_backward (GannNetwork *self)
     if (p->avg_loss < 0) {
         p->avg_loss = p->net->loss;
     } else {
-        p->avg_loss *= 0.9f;
-        p->avg_loss += p->net->loss * 0.1f;
+        p->avg_loss *= 0.95f;
+        p->avg_loss += p->net->loss * 0.05f;
     }
 
     g_object_notify_by_pspec (G_OBJECT (self),

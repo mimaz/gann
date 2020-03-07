@@ -15,6 +15,7 @@ struct context
     cl_device_id device;
     cl_context context;
     cl_command_queue queue;
+    int group_size;
 };
 
 struct context *context_create ();

@@ -1,107 +1,96 @@
-__kernel void reduce_inputs (__global const float *input,
-                                      __global const float *weight,
-                                      __global float *value) {
-__local float local_sum[INPUTS];
-int gid, lid, wid, off;
-
-lid = get_local_id (0);
-gid = get_global_id (0);
-wid = get_group_id (0);
-
-local_sum[lid] = input[lid] * weight[gid];
-
-for(off = get_local_size (0) / 2; off > 0; off /= 2) {
-barrier(CLK_LOCAL_MEM_FENCE);
-
-if (lid < off) {
-local_sum[lid] += local_sum[lid + off];
-}
-}
-
-if (lid == 0) {
-value[wid] = local_sum[0];
-}
-}
-
-__kernel void bias_activate (__global const float *bias,
-                                      __global float *value) {
-int gid;
-float sum;
-
-gid = get_global_id (0);
-sum = value[gid] + bias[gid];
-
-sum = 1.0f / (1.0f + exp (-sum));
-if (gid < OUTPUTS) {
-value[gid] = sum;
-}
-}
-
-__kernel void clear_input_gradient (__global float *gradient) {
-    gradient[get_global_id (0)] = 0;
-}
-
-__kernel void bias_backprop (__global const float *gradient,
-                                      __global float *delta,
-                                      __global float *bias,
-                                      const float rate,
-                                      const float momentum,
-                                      const float decay)
+__kernel void forward (__global const float *input_value_v,
+                       __global const float *weight_v,
+                       __global const float *bias_v,
+                       __global float *value_v)
 {
-int gid;
-float d;
+    float sum;
+    int outid, inid;
 
-    gid = get_global_id (0);
-d = delta[gid] * momentum + gradient[gid] * rate * (1 - momentum);
-    delta[gid] = d;
-    bias[gid] = bias[gid] * decay + d;
-}
+    outid = get_global_id (0);
 
-__kernel void weight_backprop (__global const float *gradient,
-                                        __global float *delta,
-                                        __global float *weight,
-                                        __global float *value,
-                                        __global float *input_gradient,
-                                        __global const float *input_value,
-                                        const float rate,
-                                        const float momentum,
-                                        const float decay)
-{
-    __local float partial[OUTPUTS];
-    int gid = get_global_id (0);
-    int lid = get_local_id (0);
+    if (outid < OUTPUTS) {
+        sum = bias_v[outid];
 
-    int index = lid * INPUTS;
-
-    float g = gradient[index];
-    float d = delta[index] * momentum
-    + g * rate * (1 - momentum)
-    * input_value[lid];
-    float w = weight[index] * decay + d;
-
-    delta[index] = d;
-    weight[index] = w;
-    partial[lid] = g * w;
-
-    for (int off = get_local_size (0) / 2; off > 0; off /= 2) {
-        barrier(CLK_LOCAL_MEM_FENCE);
-
-        if (lid < off) {
-            partial[lid] += partial[lid + off];
+        for (inid = 0; inid < INPUTS; inid++) {
+            sum += input_value_v[inid] * weight_v[outid * INPUTS + inid];
         }
-    }
 
-    if (lid == 0) {
-        input_gradient[get_group_id (0)] = partial[0];
+        sum = 1.0f / (1.0f + exp (-sum));
+        value_v[outid] = sum;
     }
 }
 
-__kernel void derive_gradient (__global const float *value,
-                                        __global float *gradient)
+__kernel void derive_gradient (__global const float *value_v,
+                               __global float *gradient_v)
 {
-    int gid = get_global_id (0);
+    __private int outid;
 
-    float v = value[gid];
+    outid = get_global_id (0);
 
-    gradient[gid] *= v * (1 - v);
+    if (outid < OUTPUTS) {
+        gradient_v[outid] *= value_v[outid] * (1.0f - value_v[outid]);
+    }
+}
+
+__kernel void backward (__global const float *input_value_v,
+                        __global const float *gradient_v,
+                        __global float *input_gradient_v,
+                        __global float *weight_v,
+                        __global float *delta_v,
+                        const float rate,
+                        const float momentum,
+                        const float decay)
+{
+    int inid, w_index, outid;
+    float sum, in, g, d, w;
+
+    inid = get_global_id (0);
+
+    if (inid < INPUTS) {
+        in = input_value_v[inid];
+        sum = 0;
+
+        for (outid = 0; outid < OUTPUTS; outid++) {
+            w_index = outid * INPUTS + inid;
+            g = gradient_v[outid];
+            d = delta_v[w_index];
+            w = weight_v[w_index];
+
+            d = d * momentum + g * rate * in;
+            w = w * decay + d;
+            sum += g * w;
+
+            weight_v[w_index] = w;
+            delta_v[w_index] = d;
+        }
+
+#ifdef CALC_GRADIENT
+        input_gradient_v[inid] = sum;
+#endif
+    }
+}
+
+__kernel void backward_bias (__global const float *gradient_v,
+                             __global float *bias_v,
+                             __global float *delta_v,
+                             const float rate,
+                             const float momentum,
+                             const float decay)
+{
+    int id;
+    float d, g, b;
+
+    id = get_global_id (0);
+
+    if (id < OUTPUTS) {
+        d = delta_v[id];
+        g = gradient_v[id];
+        b = bias_v[id];
+
+        d = d * momentum + g * rate;
+        b = b * decay + d;
+
+        bias_v[id] = b;
+        delta_v[id] = d;
+    }
 }

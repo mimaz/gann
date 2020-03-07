@@ -9,48 +9,15 @@
 struct fully_layer
 {
     struct layer base;
-    cl_kernel reduce_inputs;
-    cl_kernel bias_activate;
-    cl_kernel clear_input_gradient;
-    cl_kernel bias_backprop;
-    cl_kernel weight_backprop;
+    cl_kernel forward;
     cl_kernel derive_gradient;
+    cl_kernel backward;
+    cl_kernel backward_bias;
 };
 
 static void forward (struct layer *lay);
 static void backward (struct layer *lay);
 static void release (struct layer *lay);
-
-static cl_program
-build_program (struct network *net,
-               int inputs, int outputs)
-{
-    g_autofree char *opts;
-
-    opts = g_strdup_printf ("-DINPUTS=%d "
-                            "-DOUTPUTS=%d ",
-                            inputs,
-                            outputs);
-
-    return context_build_program (net->ctx, opts,
-                                  "fully-layer.cl",
-                                  NULL);
-}
-
-static cl_mem
-build_buffer (struct network *net,
-              cl_uint flags,
-              int value_count)
-{
-    cl_int err;
-    cl_mem mem;
-
-    mem = clCreateBuffer (net->ctx->context,
-                          flags, value_count * sizeof (cl_float),
-                          NULL, &err);
-    g_assert (err == CL_SUCCESS);
-    return mem;
-}
 
 struct layer *
 layer_make_full (struct network *net,
@@ -59,6 +26,8 @@ layer_make_full (struct network *net,
 {
     struct fully_layer *fully;
     struct layer *base, *prev;
+    g_autoptr (GString) options;
+    cl_program prog;
     int size, weights, i;
 
     g_assert (sizeof (cl_float) == sizeof (gfloat));
@@ -70,17 +39,25 @@ layer_make_full (struct network *net,
     size = width * height * depth;
     weights = prev->size * size;
 
+    options = g_string_new (NULL);
+
+    g_string_append_printf (options, "-DINPUTS=%d ", prev->size);
+    g_string_append_printf (options, "-DOUTPUTS=%d ", size);
+
+    if (prev->gradient_mem != 0) {
+        g_string_append (options, "-DCALC_GRADIENT ");
+    }
+
+    prog = context_build_program (net->ctx,
+                                  options->str,
+                                  "fully-layer.cl",
+                                  NULL);
+
     base->net = net;
     base->prev = prev;
     base->type = LAYER_FULLY;
     base->activation = activation;
-    base->value_mem = build_buffer (net, CL_MEM_READ_WRITE, size);
-    base->gradient_mem = build_buffer (net, CL_MEM_READ_WRITE, size);
-    base->bias_mem = build_buffer (net, CL_MEM_READ_WRITE, size);
-    base->weight_mem = build_buffer (net, CL_MEM_READ_WRITE, weights);
-    base->delta_mem = build_buffer (net, CL_MEM_READ_WRITE, weights);
-    base->bias_delta_mem = build_buffer (net, CL_MEM_READ_WRITE, weights);
-    base->program = build_program (net, base->prev->size, size);
+    base->program = prog;
     base->width = width;
     base->height = height;
     base->depth = depth;
@@ -90,30 +67,53 @@ layer_make_full (struct network *net,
     base->backward = backward;
     base->release = release;
 
-    layer_create_kernel (base, &fully->reduce_inputs, "reduce_inputs");
-    layer_create_kernel (base, &fully->bias_activate, "bias_activate");
-    layer_create_kernel (base, &fully->clear_input_gradient, "clear_input_gradient");
-    layer_create_kernel (base, &fully->bias_backprop, "bias_backprop");
-    layer_create_kernel (base, &fully->weight_backprop, "weight_backprop");
+    layer_create_buffer (base, &base->value_mem,
+                         size, CL_MEM_READ_WRITE);
+    layer_create_buffer (base, &base->gradient_mem,
+                         size, CL_MEM_READ_WRITE);
+    layer_create_buffer (base, &base->bias_mem,
+                         size, CL_MEM_READ_WRITE);
+    layer_create_buffer (base, &base->bias_delta_mem,
+                         size, CL_MEM_READ_WRITE);
+    layer_create_buffer (base, &base->weight_mem,
+                         weights, CL_MEM_READ_WRITE);
+    layer_create_buffer (base, &base->delta_mem,
+                         weights, CL_MEM_READ_WRITE);
+
+    layer_create_kernel (base, &fully->forward, "forward");
     layer_create_kernel (base, &fully->derive_gradient, "derive_gradient");
+    layer_create_kernel (base, &fully->backward, "backward");
+    layer_create_kernel (base, &fully->backward_bias, "backward_bias");
 
     network_push_layer (net, base);
 
+    g_autofree float *gradient_v = g_new (float, size);
     g_autofree float *bias_v = g_new (float, size);
     g_autofree float *bias_delta_v = g_new (float, size);
     g_autofree float *delta_v = g_new (float, weights);
     g_autofree float *weight_v = g_new (float, weights);
 
     for (i = 0; i < weights; i++) {
+        float r1 = cosf (2.0f * (float) M_PI * rand () / RAND_MAX);
+        float r2 = sqrtf (-2.0f  * logf ((float) rand () / RAND_MAX));
+        float d = (r1 * r2) * sqrtf (2.0f / prev->size);
+
+        weight_v[i] = d;
         delta_v[i] = 0;
-        weight_v[i] = (float) rand () / RAND_MAX / prev->size;
     }
 
     for (i = 0; i < size; i++) {
         bias_v[i] = 0;
         bias_delta_v[i] = 0;
+        gradient_v[i] = 0;
     }
 
+    clEnqueueWriteBuffer (net->ctx->queue,
+                          base->gradient_mem,
+                          CL_TRUE,
+                          0, size * sizeof (cl_float),
+                          gradient_v,
+                          0, NULL, NULL);
     clEnqueueWriteBuffer (net->ctx->queue,
                           base->bias_mem,
                           CL_TRUE,
@@ -146,108 +146,99 @@ static void
 forward (struct layer *lay)
 {
     struct fully_layer *fully;
-    cl_int err;
-    size_t global_size, local_size;
+    size_t globsiz, locsiz;
     cl_kernel kern;
+    cl_int err;
 
     g_assert (lay->type == LAYER_FULLY);
 
     fully = (struct fully_layer *) lay;
 
-    local_size = lay->prev->size;
-    global_size = lay->size * local_size;
-    kern = fully->reduce_inputs;
+    locsiz = MIN (lay->size, lay->net->ctx->group_size);
+    globsiz = ceilf ((float) lay->size / locsiz) * locsiz;
+    kern = fully->forward;
 
     clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->prev->value_mem);
     clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->weight_mem);
-    clSetKernelArg (kern, 2, sizeof (cl_mem), &lay->value_mem);
+    clSetKernelArg (kern, 2, sizeof (cl_mem), &lay->bias_mem);
+    clSetKernelArg (kern, 3, sizeof (cl_mem), &lay->value_mem);
+
+    clFinish (lay->net->ctx->queue);
     err = clEnqueueNDRangeKernel (lay->net->ctx->queue,
                                   kern, 1, NULL,
-                                  &global_size, &local_size,
+                                  &globsiz, &locsiz,
                                   0, NULL, NULL);
     g_assert (err == CL_SUCCESS);
-
-    local_size = 256;
-    global_size = ceil((float) lay->size / local_size) * local_size;
-    kern = fully->bias_activate;
-
-    clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->bias_mem);
-    clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->value_mem);
-    err = clEnqueueNDRangeKernel (lay->net->ctx->queue,
-                                  kern, 1, NULL,
-                                  &global_size, &local_size,
-                                  0, NULL, NULL);
-    g_assert (err == CL_SUCCESS);
+    clFinish (lay->net->ctx->queue);
 }
 
 static void
 backward (struct layer *lay)
 {
     struct fully_layer *fully;
-    size_t gsize, lsize;
+    size_t globsiz, locsiz;
+    float ratefactor;
     cl_kernel kern;
     cl_int err;
 
     g_assert (lay->type == LAYER_FULLY);
-
+    ratefactor = lay->net->rate * (1 - lay->net->momentum);
     fully = (struct fully_layer *) lay;
-    lsize = 256;
-    gsize = ceil ((float) lay->prev->size / lsize) * lsize;
-    kern = fully->clear_input_gradient;
 
-    clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->prev->gradient_mem);
-    err = clEnqueueNDRangeKernel (lay->net->ctx->queue,
-                                  kern, 1, NULL,
-                                  &gsize, &lsize,
-                                  0, NULL, NULL);
-    g_assert (err == CL_SUCCESS);
-
-    lsize = 256;
-    gsize = ceil ((float) lay->size / lsize) * lsize;
-    kern = fully->bias_backprop;
-
-    clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->gradient_mem);
-    clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->bias_delta_mem);
-    clSetKernelArg (kern, 2, sizeof (cl_mem), &lay->bias_mem);
-    clSetKernelArg (kern, 3, sizeof (cl_float), &lay->net->rate);
-    clSetKernelArg (kern, 4, sizeof (cl_float), &lay->net->momentum);
-    clSetKernelArg (kern, 5, sizeof (cl_float), &lay->net->decay);
-    err = clEnqueueNDRangeKernel (lay->net->ctx->queue,
-                                  kern, 1, NULL,
-                                  &gsize, &lsize,
-                                  0, NULL, NULL);
-    g_assert (err == CL_SUCCESS);
-
-    lsize = lay->size;
-    gsize = lay->size * lay->prev->size;
-    kern = fully->weight_backprop;
-
-    clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->gradient_mem);
-    clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->delta_mem);
-    clSetKernelArg (kern, 2, sizeof (cl_mem), &lay->weight_mem);
-    clSetKernelArg (kern, 3, sizeof (cl_mem), &lay->value_mem);
-    clSetKernelArg (kern, 4, sizeof (cl_mem), &lay->prev->gradient_mem);
-    clSetKernelArg (kern, 5, sizeof (cl_mem), &lay->prev->value_mem);
-    clSetKernelArg (kern, 6, sizeof (cl_float), &lay->net->rate);
-    clSetKernelArg (kern, 7, sizeof (cl_float), &lay->net->momentum);
-    clSetKernelArg (kern, 8, sizeof (cl_float), &lay->net->decay);
-    err |= clEnqueueNDRangeKernel (lay->net->ctx->queue,
-                                   kern, 1, NULL,
-                                   &gsize, &lsize,
-                                   0, NULL, NULL);
-    g_assert (err == CL_SUCCESS);
-
-    lsize = 256;
-    gsize = ceil((float) lay->prev->size / 256) * 256;
+    locsiz = MIN (lay->size, lay->net->ctx->group_size);
+    globsiz = ceilf ((float) lay->prev->size / locsiz) * locsiz;
     kern = fully->derive_gradient;
 
-    err = clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->prev->value_mem);
-    clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->prev->gradient_mem);
-    clEnqueueNDRangeKernel (lay->net->ctx->queue,
-                            kern, 1, NULL,
-                            &gsize, &lsize,
-                            0, NULL, NULL);
+    clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->value_mem);
+    clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->gradient_mem);
+
+    err = clEnqueueNDRangeKernel (lay->net->ctx->queue,
+                                  kern, 1, NULL,
+                                  &globsiz, &locsiz,
+                                  0, NULL, NULL);
     g_assert (err == CL_SUCCESS);
+
+    locsiz = lay->net->ctx->group_size;
+    globsiz = ceilf ((float) lay->prev->size / locsiz) * locsiz;
+    kern = fully->backward;
+
+    clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->prev->value_mem);
+    clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->gradient_mem);
+    clSetKernelArg (kern, 2, sizeof (cl_mem), &lay->prev->gradient_mem);
+    clSetKernelArg (kern, 3, sizeof (cl_mem), &lay->weight_mem);
+    clSetKernelArg (kern, 4, sizeof (cl_mem), &lay->delta_mem);
+    clSetKernelArg (kern, 5, sizeof (cl_float), &ratefactor);
+    clSetKernelArg (kern, 6, sizeof (cl_float), &lay->net->momentum);
+    clSetKernelArg (kern, 7, sizeof (cl_float), &lay->net->decay);
+
+    clFinish (lay->net->ctx->queue);
+    err = clEnqueueNDRangeKernel (lay->net->ctx->queue,
+                                  kern, 1, NULL,
+                                  &globsiz, &locsiz,
+                                  0, NULL, NULL);
+    clFinish (lay->net->ctx->queue);
+    g_assert (err == CL_SUCCESS);
+
+    g_autofree float *buff = g_new (float, lay->size);
+    clFinish (lay->net->ctx->queue);
+    g_assert (lay->gradient_mem != 0);
+
+    globsiz = ceilf ((float) lay->size / locsiz) * locsiz;
+    kern = fully->backward_bias;
+
+    clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->gradient_mem);
+    clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->bias_mem);
+    clSetKernelArg (kern, 2, sizeof (cl_mem), &lay->bias_delta_mem);
+    clSetKernelArg (kern, 3, sizeof (cl_float), &ratefactor);
+    clSetKernelArg (kern, 4, sizeof (cl_float), &lay->net->momentum);
+    clSetKernelArg (kern, 5, sizeof (cl_float), &lay->net->decay);
+
+    err = clEnqueueNDRangeKernel (lay->net->ctx->queue,
+                                  kern, 1, NULL,
+                                  &globsiz, &locsiz,
+                                  0, NULL, NULL);
+    g_assert (err == CL_SUCCESS);
+    clFinish (lay->net->ctx->queue);
 }
 
 static void

@@ -4,29 +4,32 @@ __kernel void backprop (__global const float *truth_v,
                         __global float *loss_p)
 {
     __local float local_loss[OUTPUTS];
-    int gid, lid, off;
+    int gid, off;
     float sub, loss;
 
-    gid = get_global_id (0);
-    lid = get_local_id (0);
-    sub = truth_v[gid] - value_v[gid];
+    gid = get_local_id (0);
 
-    local_loss[lid] = sub * sub;
+    if (gid < OUTPUTS) {
+        sub = truth_v[gid] - value_v[gid];
 
-    for (off = lid / 2; off > 0; off /= 2) {
-        if (lid < off) {
-            local_loss[lid] += local_loss[lid + off];
+        local_loss[gid] = sub * sub;
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        if (gid == 0) {
+            for (off = 1; off < OUTPUTS; off++) {
+                local_loss[0] += local_loss[off];
+            }
+
+            local_loss[0] = sqrt (local_loss[0]);
+            loss_p[0] = local_loss[0];
         }
 
         barrier(CLK_LOCAL_MEM_FENCE);
+
+        prev_gradient_v[gid] = sub * local_loss[0];
+    } else {
+        barrier(CLK_LOCAL_MEM_FENCE);
+        barrier(CLK_LOCAL_MEM_FENCE);
     }
-
-    if (lid == 0) {
-        local_loss[0] = sqrt (local_loss[0]);
-        loss_p[0] = local_loss[0];
-    }
-
-    barrier(CLK_LOCAL_MEM_FENCE);
-
-    prev_gradient_v[lid] = sub * local_loss[0];
 }

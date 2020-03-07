@@ -22,6 +22,7 @@ layer_make_output (struct network *net)
     struct layer *base, *prev;
     int size;
     char options[128];
+    float zero;
     cl_program program;
 
     out = g_new0 (struct output_layer, 1);
@@ -29,9 +30,11 @@ layer_make_output (struct network *net)
     prev = network_layer_last (net);
     size = prev->width * prev->height * prev->depth;
 
+    g_assert (size == prev->size);
+
     g_snprintf (options, sizeof (options),
                 "-DINPUTS=%d -DOUTPUTS=%d",
-                prev->size, size);
+                size, size);
     program = context_build_program (net->ctx,
                                      options,
                                      "output-layer.cl",
@@ -54,10 +57,30 @@ layer_make_output (struct network *net)
     layer_create_buffer (base, &base->value_mem, size,
                          CL_MEM_READ_WRITE);
     layer_create_buffer (base, &out->truth_mem, size,
-                         CL_MEM_READ_ONLY);
+                         CL_MEM_READ_WRITE);
     layer_create_buffer (base, &out->loss_mem, 1,
-                         CL_MEM_WRITE_ONLY);
+                         CL_MEM_READ_WRITE);
+
     layer_create_kernel (base, &out->backprop_kern, "backprop");
+
+    zero = 0;
+
+    g_autofree float *gradient_v = g_new (float, base->size);
+
+    for (int i = 0; i < base->size; i++) {
+        gradient_v[i] = 0;
+    }
+
+    clEnqueueWriteBuffer (base->net->ctx->queue,
+                          base->gradient_mem,
+                          CL_TRUE,
+                          0, sizeof (cl_float),
+                          gradient_v, 0, NULL, NULL);
+    clEnqueueWriteBuffer (base->net->ctx->queue,
+                          out->loss_mem,
+                          CL_TRUE,
+                          0, sizeof (cl_float),
+                          &net->loss, 0, NULL, NULL);
 
     network_push_layer (net, base);
 
@@ -78,10 +101,11 @@ layer_output_set_truth (struct layer *lay,
 
     clEnqueueWriteBuffer (lay->net->ctx->queue,
                           out->truth_mem,
-                          CL_FALSE,
+                          CL_TRUE,
                           0, size * sizeof (cl_float),
                           data, 0, NULL,
                           &out->truth_event);
+    clFinish (lay->net->ctx->queue);
 }
 
 static void
@@ -120,12 +144,25 @@ backward (struct layer *lay)
                                   1, &out->truth_event,
                                   NULL);
     g_assert (err == CL_SUCCESS);
+    clFinish (lay->net->ctx->queue);
+    /* g_autofree float *buff = g_new (float, lay->prev->size); */
+    /* clEnqueueReadBuffer (lay->net->ctx->queue, */
+    /*                      lay->prev->gradient_mem, */
+    /*                      CL_TRUE, */
+    /*                      0, sizeof (cl_float) * lay->prev->size, */
+    /*                      buff, 0, NULL, NULL); */
+    /*  */
+    /* for (int i = 0; i < lay->prev->size; i++) { */
+    /*     g_message ("out g %d: %f", i, buff[i]); */
+    /* } */
 
+    clFinish (lay->net->ctx->queue);
     clEnqueueReadBuffer (lay->net->ctx->queue,
                          out->loss_mem,
                          CL_TRUE,
                          0, sizeof (cl_float),
                          &out->loss, 0, NULL, NULL);
+    clFinish (lay->net->ctx->queue);
     lay->net->loss = out->loss;
 }
 

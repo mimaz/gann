@@ -31,6 +31,8 @@ context_create ()
     ctx->queue = clCreateCommandQueue (ctx->context, ctx->device, 0, &err);
     g_assert (err == 0);
 
+    ctx->group_size = 256;
+
     return ctx;
 }
 

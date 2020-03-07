@@ -12,7 +12,6 @@ layer_make_input (struct network *net,
 {
     struct layer *base;
     int size;
-    cl_int err;
 
     base = g_new0 (struct layer, 1);
     size = width * height * depth;
@@ -20,16 +19,6 @@ layer_make_input (struct network *net,
     base->net = net;
     base->type = LAYER_INPUT;
     base->activation = ACTIVATION_LINEAR;
-    base->value_mem = clCreateBuffer (net->ctx->context,
-                                      CL_MEM_READ_WRITE,
-                                      size * sizeof (cl_float),
-                                      NULL, &err);
-    g_assert (err == CL_SUCCESS);
-    base->gradient_mem = clCreateBuffer (net->ctx->context,
-                                         CL_MEM_READ_WRITE,
-                                         size * sizeof (cl_float),
-                                         NULL, &err);
-    g_assert (err == CL_SUCCESS);
     base->width = width;
     base->height = height;
     base->depth = depth;
@@ -38,6 +27,11 @@ layer_make_input (struct network *net,
     base->forward = forward;
     base->backward = backward;
     base->release = release;
+
+    layer_create_buffer (base, &base->value_mem,
+                         size, CL_MEM_READ_WRITE);
+    layer_create_buffer (base, &base->gradient_mem,
+                         size, CL_MEM_READ_WRITE);
 
     network_push_layer (net, base);
 
@@ -52,12 +46,18 @@ layer_input_set_data (struct layer *lay,
     g_assert (lay->type == LAYER_INPUT);
     g_assert (size == lay->size);
 
+    g_autofree float *buff = g_memdup (data, sizeof (float) * size);
+
+    for (int i = 0; i < size; i++)
+        buff[i] = data[i] - 0.5f;
+
     clEnqueueWriteBuffer (lay->net->ctx->queue,
                           lay->value_mem,
-                          CL_FALSE,
+                          CL_TRUE,
                           0, size * sizeof (cl_float),
-                          data,
+                          buff,
                           0, NULL, NULL);
+    clFinish (lay->net->ctx->queue);
 }
 
 static void

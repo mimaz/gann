@@ -10,6 +10,7 @@ network_make_empty (struct context *ctx)
     net = g_new0 (struct network, 1);
     net->ctx = ctx;
     net->layers = g_ptr_array_new ();
+    net->loss = 0;
     net->rate = 0.001f;
     net->momentum = 0.99f;
     net->decay = 0.00001f;
@@ -89,13 +90,6 @@ network_backward (struct network *net)
     int i, j, count;
 
     count = network_layer_count (net);
-
-    for (i = 0; i < count; i++) {
-        lay = network_layer (net, i);
-        for (j = 0; j < lay->size; j++) {
-            /* lay->gradient_v[j] = 0; */
-        }
-    }
 
     net->loss = 0;
 

@@ -24,10 +24,10 @@ struct layer
     cl_mem value_mem;
     cl_mem gradient_mem;
     cl_mem bias_mem;
+    cl_mem bias_delta_mem;
 
     cl_mem weight_mem;
     cl_mem delta_mem;
-    cl_mem bias_delta_mem;
 
     cl_program program;
     cl_kernel kernels[8];
