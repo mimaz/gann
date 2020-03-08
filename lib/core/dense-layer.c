@@ -6,7 +6,7 @@
 
 #define USE_OPENCL
 
-struct fully_layer
+struct dense_layer
 {
     struct layer base;
     cl_kernel forward;
@@ -24,15 +24,15 @@ layer_make_full (struct network *net,
                  enum activation_type activation,
                  int width, int height, int depth)
 {
-    struct fully_layer *fully;
+    struct dense_layer *dense;
     struct layer *base, *prev;
     int size, weights, i;
     cl_program prog;
 
     g_assert (sizeof (cl_float) == sizeof (gfloat));
 
-    fully = g_new0 (struct fully_layer, 1);
-    base = (struct layer *) fully;
+    dense = g_new0 (struct dense_layer, 1);
+    base = (struct layer *) dense;
     prev = network_layer_last (net);
 
     size = width * height * depth;
@@ -46,12 +46,12 @@ layer_make_full (struct network *net,
         context_program_option (net->ctx, "-DCALC_GRADIENT");
     }
 
-    context_program_file (net->ctx, "fully-layer.cl");
+    context_program_file (net->ctx, "dense-layer.cl");
     prog = context_program_build (net->ctx);
 
     base->net = net;
     base->prev = prev;
-    base->type = LAYER_FULLY;
+    base->type = LAYER_DENSE;
     base->activation = activation;
     base->program = prog;
     base->width = width;
@@ -76,10 +76,10 @@ layer_make_full (struct network *net,
     layer_create_buffer (base, &base->delta_mem,
                          weights, CL_MEM_READ_WRITE);
 
-    layer_create_kernel (base, &fully->forward, "forward");
-    layer_create_kernel (base, &fully->derive_gradient, "derive_gradient");
-    layer_create_kernel (base, &fully->backward, "backward");
-    layer_create_kernel (base, &fully->backward_bias, "backward_bias");
+    layer_create_kernel (base, &dense->forward, "forward");
+    layer_create_kernel (base, &dense->derive_gradient, "derive_gradient");
+    layer_create_kernel (base, &dense->backward, "backward");
+    layer_create_kernel (base, &dense->backward_bias, "backward_bias");
 
     network_push_layer (net, base);
 
@@ -141,18 +141,18 @@ layer_make_full (struct network *net,
 static void
 forward (struct layer *lay)
 {
-    struct fully_layer *fully;
+    struct dense_layer *dense;
     size_t globsiz, locsiz;
     cl_kernel kern;
     cl_int err;
 
-    g_assert (lay->type == LAYER_FULLY);
+    g_assert (lay->type == LAYER_DENSE);
 
-    fully = (struct fully_layer *) lay;
+    dense = (struct dense_layer *) lay;
 
     locsiz = MIN (lay->size, lay->net->ctx->group_size);
     globsiz = ceilf ((float) lay->size / locsiz) * locsiz;
-    kern = fully->forward;
+    kern = dense->forward;
 
     clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->prev->value_mem);
     clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->weight_mem);
@@ -171,19 +171,19 @@ forward (struct layer *lay)
 static void
 backward (struct layer *lay)
 {
-    struct fully_layer *fully;
+    struct dense_layer *dense;
     size_t globsiz, locsiz;
     float ratefactor;
     cl_kernel kern;
     cl_int err;
 
-    g_assert (lay->type == LAYER_FULLY);
+    g_assert (lay->type == LAYER_DENSE);
     ratefactor = lay->net->rate * (1 - lay->net->momentum);
-    fully = (struct fully_layer *) lay;
+    dense = (struct dense_layer *) lay;
 
     locsiz = MIN (lay->size, lay->net->ctx->group_size);
     globsiz = ceilf ((float) lay->prev->size / locsiz) * locsiz;
-    kern = fully->derive_gradient;
+    kern = dense->derive_gradient;
 
     clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->value_mem);
     clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->gradient_mem);
@@ -196,7 +196,7 @@ backward (struct layer *lay)
 
     locsiz = lay->net->ctx->group_size;
     globsiz = ceilf ((float) lay->prev->size / locsiz) * locsiz;
-    kern = fully->backward;
+    kern = dense->backward;
 
     clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->prev->value_mem);
     clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->gradient_mem);
@@ -220,7 +220,7 @@ backward (struct layer *lay)
     g_assert (lay->gradient_mem != 0);
 
     globsiz = ceilf ((float) lay->size / locsiz) * locsiz;
-    kern = fully->backward_bias;
+    kern = dense->backward_bias;
 
     clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->gradient_mem);
     clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->bias_mem);

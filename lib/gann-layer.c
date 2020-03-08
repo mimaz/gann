@@ -3,7 +3,7 @@
 #include "gann-layer-private.h"
 #include "gann-input-layer.h"
 #include "gann-output-layer.h"
-#include "gann-fully-layer.h"
+#include "gann-dense-layer.h"
 #include "gann-network.h"
 
 #include "core/layer.h"
@@ -318,13 +318,13 @@ gann_layer_new_output (GannNetwork *network)
 }
 
 GannLayer *
-gann_layer_new_fully (GannNetwork *network,
+gann_layer_new_dense (GannNetwork *network,
                       gint width,
                       gint height,
                       gint depth,
                       GannActivation activation)
 {
-    return g_object_new (GANN_TYPE_FULLY_LAYER,
+    return g_object_new (GANN_TYPE_DENSE_LAYER,
                          "network", network,
                          "width", width,
                          "height", height,

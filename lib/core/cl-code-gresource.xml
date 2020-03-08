@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
     <gresource prefix="/gann/core/cl">
-        <file>fully-layer.cl</file>
+        <file>dense-layer.cl</file>
         <file>output-layer.cl</file>
     </gresource>
 </gresources>

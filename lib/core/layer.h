@@ -10,7 +10,7 @@ enum layer_type
     LAYER_OUTPUT,
     LAYER_CONVOLUTION,
     LAYER_ACTIVATION,
-    LAYER_FULLY,
+    LAYER_DENSE,
     N_LAYERS,
 };
 

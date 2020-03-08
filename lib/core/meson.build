@@ -1,7 +1,7 @@
 source = [
     'network.c',
     'layer.c',
-    'fully-layer.c',
+    'dense-layer.c',
     'input-layer.c',
     'output-layer.c',
     'context.c',

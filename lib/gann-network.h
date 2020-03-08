@@ -9,7 +9,7 @@ typedef struct _GannContext GannContext;
 typedef struct _GannLayer GannLayer;
 typedef struct _GannInputLayer GannInputLayer;
 typedef struct _GannOutputLayer GannOutputLayer;
-typedef struct _GannFullyLayer GannFullyLayer;
+typedef struct _GannDenseLayer GannDenseLayer;
 
 #define GANN_TYPE_NETWORK (gann_network_get_type ())
 
@@ -31,7 +31,7 @@ GannInputLayer *gann_network_create_input (GannNetwork *self,
                                            gint height,
                                            gint depth);
 GannOutputLayer *gann_network_create_output (GannNetwork *self);
-GannFullyLayer *gann_network_create_fully (GannNetwork *self,
+GannDenseLayer *gann_network_create_dense (GannNetwork *self,
                                            gint width,
                                            gint height,
                                            gint depth,

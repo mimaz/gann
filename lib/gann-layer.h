@@ -22,7 +22,7 @@ GannLayer *gann_layer_new_input (GannNetwork *network,
                                  gint height,
                                  gint depth);
 GannLayer *gann_layer_new_output (GannNetwork *network);
-GannLayer *gann_layer_new_fully (GannNetwork *network,
+GannLayer *gann_layer_new_dense (GannNetwork *network,
                                  gint width,
                                  gint height,
                                  gint depth,

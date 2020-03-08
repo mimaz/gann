@@ -5,7 +5,7 @@ source = [
     'gann-layer.c',
     'gann-input-layer.c',
     'gann-output-layer.c',
-    'gann-fully-layer.c',
+    'gann-dense-layer.c',
     'gann-activation.c',
     'gann-context.c',
 ]
@@ -15,7 +15,7 @@ public_header = [
     'gann-layer.h',
     'gann-input-layer.h',
     'gann-output-layer.h',
-    'gann-fully-layer.h',
+    'gann-dense-layer.h',
     'gann-activation.h',
 ]
 
