@@ -87,7 +87,7 @@ void
 network_backward (struct network *net)
 {
     struct layer *lay;
-    int i, j, count;
+    int i, count;
 
     count = network_layer_count (net);
 

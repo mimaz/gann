@@ -26,9 +26,8 @@ layer_make_full (struct network *net,
 {
     struct fully_layer *fully;
     struct layer *base, *prev;
-    g_autoptr (GString) options;
-    cl_program prog;
     int size, weights, i;
+    cl_program prog;
 
     g_assert (sizeof (cl_float) == sizeof (gfloat));
 
@@ -39,19 +38,16 @@ layer_make_full (struct network *net,
     size = width * height * depth;
     weights = prev->size * size;
 
-    options = g_string_new (NULL);
-
-    g_string_append_printf (options, "-DINPUTS=%d ", prev->size);
-    g_string_append_printf (options, "-DOUTPUTS=%d ", size);
+    context_program_clear (net->ctx);
+    context_program_option (net->ctx, "-DINPUTS=%d", prev->size);
+    context_program_option (net->ctx, "-DOUTPUTS=%d", size);
 
     if (prev->gradient_mem != 0) {
-        g_string_append (options, "-DCALC_GRADIENT ");
+        context_program_option (net->ctx, "-DCALC_GRADIENT");
     }
 
-    prog = context_build_program (net->ctx,
-                                  options->str,
-                                  "fully-layer.cl",
-                                  NULL);
+    context_program_file (net->ctx, "fully-layer.cl");
+    prog = context_program_build (net->ctx);
 
     base->net = net;
     base->prev = prev;

@@ -9,7 +9,7 @@ context_create ()
     cl_int err;
     cl_platform_id plat_id;
 
-    ctx = g_new (struct context, 1);
+    ctx = g_new0 (struct context, 1);
     ctx->netlist = NULL;
     ctx->codetable = g_hash_table_new_full (g_str_hash,
                                           g_str_equal,
@@ -33,6 +33,8 @@ context_create ()
 
     ctx->group_size = 256;
 
+    context_program_clear (ctx);
+
     return ctx;
 }
 
@@ -51,6 +53,8 @@ release_program (gpointer prog)
 void
 context_free (struct context *ctx)
 {
+    context_program_clear (ctx);
+
     g_slist_free_full (ctx->netlist, release_network);
     g_slist_free_full (ctx->programlist, release_program);
 
@@ -85,40 +89,73 @@ context_read_cl_code (struct context *ctx,
     return g_bytes_get_data (bytes, NULL);
 }
 
+void
+context_program_clear (struct context *ctx)
+{
+    if (ctx->options != NULL) {
+        g_string_free (ctx->options, TRUE);
+        ctx->options = NULL;
+    }
+
+    g_clear_pointer (&ctx->sources, g_ptr_array_unref);
+}
+
+void
+context_program_option (struct context *ctx,
+                        const char *fmt,
+                        ...)
+{
+    va_list args;
+
+    if (ctx->options == NULL) {
+        ctx->options = g_string_new (NULL);
+    }
+
+    va_start (args, fmt);
+    g_string_append_vprintf (ctx->options, fmt, args);
+    g_string_append_c (ctx->options, ' ');
+    va_end (args);
+}
+
+void
+context_program_file (struct context *ctx,
+                      const char *name)
+{
+    const char *code;
+
+    code = context_read_cl_code (ctx, name);
+
+    context_program_code (ctx, code);
+}
+
+void
+context_program_code (struct context *ctx,
+                      const char *code)
+{
+    if (ctx->sources == NULL) {
+        ctx->sources = g_ptr_array_new_with_free_func (g_free);
+    }
+
+    g_ptr_array_insert (ctx->sources, -1, g_strdup (code));
+}
+
 cl_program
-context_build_program (struct context *ctx,
-                       const char *options,
-                       const char *firstfile,
-                       ...)
+context_program_build (struct context *ctx)
 {
     cl_program prog;
     cl_int err;
     char *log;
     size_t logsize;
-    g_autoptr (GPtrArray) arr;
-    va_list args;
-    const char *src;
-
-    arr = g_ptr_array_new ();
-
-    va_start (args, firstfile);
-
-    do {
-        src = context_read_cl_code (ctx, firstfile);
-        g_ptr_array_insert (arr, -1, (gpointer) src);
-        firstfile = va_arg (args, const char *);
-    } while (firstfile);
-
-    va_end (args);
 
     prog = clCreateProgramWithSource (ctx->context,
-                                      arr->len,
-                                      (const char **) arr->pdata,
+                                      ctx->sources->len,
+                                      (const char **)
+                                      ctx->sources->pdata,
                                       NULL, &err);
 
     g_assert (err == CL_SUCCESS);
 
-    err = clBuildProgram (prog, 0, NULL, options, NULL, NULL);
+    err = clBuildProgram (prog, 0, NULL, ctx->options->str, NULL, NULL);
 
     if (err != CL_SUCCESS) {
         clGetProgramBuildInfo (prog, ctx->device,
@@ -133,6 +170,8 @@ context_build_program (struct context *ctx,
     }
 
     ctx->programlist = g_slist_prepend (ctx->programlist, prog);
+
+    context_program_clear (ctx);
 
     return prog;
 }
