@@ -3,8 +3,8 @@ __kernel void forward (__global const float *input_value_v,
                        __global const float *bias_v,
                        __global float *value_v)
 {
-    float sum;
-    int outid, inid;
+    __private float sum;
+    __private int outid, inid;
 
     outid = get_global_id (0);
 
@@ -21,6 +21,9 @@ __kernel void forward (__global const float *input_value_v,
 }
 
 __kernel void derive_gradient (__global const float *value_v,
+#ifdef DERIVATIVE_WITH_INPUT
+                               __global const float *input_v,
+#endif
                                __global float *gradient_v)
 {
     __private int outid;
@@ -28,7 +31,12 @@ __kernel void derive_gradient (__global const float *value_v,
     outid = get_global_id (0);
 
     if (outid < OUTPUTS) {
-        gradient_v[outid] *= value_v[outid] * (1.0f - value_v[outid]);
+#ifdef DERIVATIVE_WITH_INPUT
+        gradient_v[outid] *= activation_derivative (value_v[outid],
+                                                    input_v[outid]);
+#else
+        gradient_v[outid] *= activation_derivative (value_v[outid]);
+#endif
     }
 }
 
@@ -41,14 +49,19 @@ __kernel void backward (__global const float *input_value_v,
                         const float momentum,
                         const float decay)
 {
-    int inid, w_index, outid;
-    float sum, in, g, d, w;
+    __private int inid, w_index, outid;
+    __private float in, g, d, w;
+#ifdef CALC_GRADIENT
+    __private float sum;
+#endif
 
     inid = get_global_id (0);
 
     if (inid < INPUTS) {
         in = input_value_v[inid];
+#ifdef CALC_GRADIENT
         sum = 0;
+#endif
 
         for (outid = 0; outid < OUTPUTS; outid++) {
             w_index = outid * INPUTS + inid;
@@ -58,7 +71,9 @@ __kernel void backward (__global const float *input_value_v,
 
             d = d * momentum + g * rate * in;
             w = w * decay + d;
+#ifdef CALC_GRADIENT
             sum += g * w;
+#endif
 
             weight_v[w_index] = w;
             delta_v[w_index] = d;
@@ -77,8 +92,8 @@ __kernel void backward_bias (__global const float *gradient_v,
                              const float momentum,
                              const float decay)
 {
-    int id;
-    float d, g, b;
+    __private float d, g, b;
+    __private int id;
 
     id = get_global_id (0);
 

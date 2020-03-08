@@ -3,5 +3,6 @@
     <gresource prefix="/gann/core/cl">
         <file>dense-layer.cl</file>
         <file>output-layer.cl</file>
+        <file>sigmoid.cl</file>
     </gresource>
 </gresources>
