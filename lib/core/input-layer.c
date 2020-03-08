@@ -2,10 +2,6 @@
 #include "network.h"
 #include "context.h"
 
-static void forward (struct layer *lay);
-static void backward (struct layer *lay);
-static void release (struct layer *lay);
-
 struct layer *
 layer_make_input (struct network *net,
                   int width, int height, int depth)
@@ -24,9 +20,6 @@ layer_make_input (struct network *net,
     base->depth = depth;
     base->size = size;
     base->weights = 0;
-    base->forward = forward;
-    base->backward = backward;
-    base->release = release;
 
     layer_create_buffer (base, &base->value_mem,
                          size, CL_MEM_READ_WRITE);
@@ -58,19 +51,4 @@ layer_input_set_data (struct layer *lay,
                           buff,
                           0, NULL, NULL);
     clFinish (lay->net->ctx->queue);
-}
-
-static void
-forward (struct layer *lay)
-{
-}
-
-static void
-backward (struct layer *lay)
-{
-}
-
-static void
-release (struct layer *lay)
-{
 }

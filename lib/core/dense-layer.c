@@ -15,6 +15,7 @@ struct dense_layer
     cl_kernel backward_bias;
 };
 
+static void compile (struct layer *lay);
 static void forward (struct layer *lay);
 static void backward (struct layer *lay);
 static void release (struct layer *lay);
@@ -27,9 +28,6 @@ layer_make_full (struct network *net,
     struct dense_layer *dense;
     struct layer *base, *prev;
     int size, weights, i;
-    cl_program prog;
-
-    g_assert (sizeof (cl_float) == sizeof (gfloat));
 
     dense = g_new0 (struct dense_layer, 1);
     base = (struct layer *) dense;
@@ -38,27 +36,16 @@ layer_make_full (struct network *net,
     size = width * height * depth;
     weights = prev->size * size;
 
-    context_program_clear (net->ctx);
-    context_program_option (net->ctx, "-DINPUTS=%d", prev->size);
-    context_program_option (net->ctx, "-DOUTPUTS=%d", size);
-
-    if (prev->gradient_mem != 0) {
-        context_program_option (net->ctx, "-DCALC_GRADIENT");
-    }
-
-    context_program_file (net->ctx, "dense-layer.cl");
-    prog = context_program_build (net->ctx);
-
     base->net = net;
     base->prev = prev;
     base->type = LAYER_DENSE;
     base->activation = activation;
-    base->program = prog;
     base->width = width;
     base->height = height;
     base->depth = depth;
     base->size = size;
     base->weights = weights;
+    base->compile = compile;
     base->forward = forward;
     base->backward = backward;
     base->release = release;
@@ -75,11 +62,6 @@ layer_make_full (struct network *net,
                          weights, CL_MEM_READ_WRITE);
     layer_create_buffer (base, &base->delta_mem,
                          weights, CL_MEM_READ_WRITE);
-
-    layer_create_kernel (base, &dense->forward, "forward");
-    layer_create_kernel (base, &dense->derive_gradient, "derive_gradient");
-    layer_create_kernel (base, &dense->backward, "backward");
-    layer_create_kernel (base, &dense->backward_bias, "backward_bias");
 
     network_push_layer (net, base);
 
@@ -136,6 +118,34 @@ layer_make_full (struct network *net,
                           0, NULL, NULL);
 
     return base;
+}
+
+static void
+compile (struct layer *lay)
+{
+    struct dense_layer *dense;
+    struct context *ctx;
+
+    g_assert (lay->type == LAYER_DENSE);
+
+    dense = (struct dense_layer *) lay;
+    ctx = lay->net->ctx;
+
+    context_program_clear (ctx);
+    context_program_option (ctx, "-DINPUTS=%d", lay->prev->size);
+    context_program_option (ctx, "-DOUTPUTS=%d", lay->size);
+
+    if (lay->prev->gradient_mem != 0) {
+        context_program_option (ctx, "-DCALC_GRADIENT");
+    }
+
+    context_program_file (ctx, "dense-layer.cl");
+    lay->program = context_program_build (ctx);
+
+    layer_create_kernel (lay, &dense->forward, "forward");
+    layer_create_kernel (lay, &dense->derive_gradient, "derive_gradient");
+    layer_create_kernel (lay, &dense->backward, "backward");
+    layer_create_kernel (lay, &dense->backward_bias, "backward_bias");
 }
 
 static void

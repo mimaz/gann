@@ -12,6 +12,7 @@ struct output_layer
     float loss;
 };
 
+static void compile (struct layer *lay);
 static void forward (struct layer *lay);
 static void backward (struct layer *lay);
 static void release (struct layer *lay);
@@ -21,7 +22,6 @@ layer_make_output (struct network *net)
 {
     struct output_layer *out;
     struct layer *base, *prev;
-    cl_program program;
     int size;
 
     out = g_new0 (struct output_layer, 1);
@@ -31,28 +31,16 @@ layer_make_output (struct network *net)
 
     g_assert (size == prev->size);
 
-    context_program_clear (net->ctx);
-    context_program_file (net->ctx, "output-layer.cl");
-    context_program_option (net->ctx, "-DSIZE=%d", size);
-    context_program_option (net->ctx, "-DSIZE_P2U=%d",
-                            util_upper_power_2 (size));
-
-    if (prev->gradient_mem != 0) {
-        context_program_option (net->ctx, "-DCALC_GRADIENT");
-    }
-
-    program = context_program_build (net->ctx);
-
     base->net = net;
     base->prev = prev;
     base->type = LAYER_OUTPUT;
     base->activation = ACTIVATION_LINEAR;
-    base->program = program;
     base->width = prev->width;
     base->height = prev->height;
     base->depth = prev->depth;
     base->size = size;
     base->weights = 0;
+    base->compile = compile;
     base->forward = forward;
     base->backward = backward;
     base->release = release;
@@ -63,8 +51,6 @@ layer_make_output (struct network *net)
                          CL_MEM_READ_WRITE);
     layer_create_buffer (base, &out->loss_mem, 1,
                          CL_MEM_READ_WRITE);
-
-    layer_create_kernel (base, &out->backprop_kern, "backprop");
 
     g_autofree float *gradient_v = g_new (float, base->size);
 
@@ -110,6 +96,30 @@ layer_output_set_truth (struct layer *lay,
 }
 
 static void
+compile (struct layer *lay)
+{
+    struct output_layer *out;
+    struct context *ctx;
+
+    out = (struct output_layer *) lay;
+    ctx = lay->net->ctx;
+
+    context_program_clear (ctx);
+    context_program_file (ctx, "output-layer.cl");
+    context_program_option (ctx, "-DSIZE=%d", lay->size);
+    context_program_option (ctx, "-DSIZE_P2U=%d",
+                            util_upper_power_2 (lay->size));
+
+    if (lay->prev->gradient_mem != 0) {
+        context_program_option (ctx, "-DCALC_GRADIENT");
+    }
+
+    lay->program = context_program_build (ctx);
+
+    layer_create_kernel (lay, &out->backprop_kern, "backprop");
+}
+
+static void
 forward (struct layer *lay)
 {
     g_assert (lay->type == LAYER_OUTPUT);
@@ -146,16 +156,6 @@ backward (struct layer *lay)
                                   NULL);
     g_assert (err == CL_SUCCESS);
     clFinish (lay->net->ctx->queue);
-    /* g_autofree float *buff = g_new (float, lay->prev->size); */
-    /* clEnqueueReadBuffer (lay->net->ctx->queue, */
-    /*                      lay->prev->gradient_mem, */
-    /*                      CL_TRUE, */
-    /*                      0, sizeof (cl_float) * lay->prev->size, */
-    /*                      buff, 0, NULL, NULL); */
-    /*  */
-    /* for (int i = 0; i < lay->prev->size; i++) { */
-    /*     g_message ("out g %d: %f", i, buff[i]); */
-    /* } */
 
     clFinish (lay->net->ctx->queue);
     clEnqueueReadBuffer (lay->net->ctx->queue,

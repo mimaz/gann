@@ -4,6 +4,41 @@
 #include <math.h>
 
 void
+layer_compile (struct layer *lay)
+{
+    if (layer_is_compiled (lay) == 0) {
+        lay->compile (lay);
+        g_assert (layer_is_compiled (lay) != 0);
+    }
+}
+
+int
+layer_is_compiled (struct layer *lay)
+{
+    return lay->compile == NULL || lay->program != 0;
+}
+
+void
+layer_forward (struct layer *lay)
+{
+    layer_compile (lay);
+
+    if (lay->forward != NULL) {
+        lay->forward (lay);
+    }
+}
+
+void
+layer_backward (struct layer *lay)
+{
+    layer_compile (lay);
+
+    if (lay->backward != NULL) {
+        lay->backward (lay);
+    }
+}
+
+void
 layer_free (struct layer *lay)
 {
     if (lay->release != NULL) {

@@ -30,7 +30,7 @@ struct layer
     cl_mem delta_mem;
 
     cl_program program;
-    cl_kernel kernels[8];
+    cl_kernel kernels[16];
 
     int width;
     int height;
@@ -38,6 +38,7 @@ struct layer
     int size;
     int weights;
 
+    void (*compile) (struct layer *lay);
     void (*forward) (struct layer *lay);
     void (*backward) (struct layer *lay);
     void (*release) (struct layer *lay);
@@ -54,11 +55,16 @@ struct layer *layer_make_input (struct network *net,
                                 int width, int height, int depth);
 struct layer *layer_make_output (struct network *net);
 
+void layer_compile (struct layer *lay);
+int layer_is_compiled (struct layer *lay);
+void layer_forward (struct layer *lay);
+void layer_backward (struct layer *lay);
 void layer_free (struct layer *lay);
 void layer_load_value (struct layer *lay,
                        float *buff,
                        int offset,
                        int count);
+
 void layer_create_kernel (struct layer *lay,
                           cl_kernel *handle,
                           const char *name);

@@ -23,3 +23,4 @@ int network_layer_count (struct network *net);
 void network_push_layer (struct network *net, struct layer *lay);
 void network_forward (struct network *net);
 void network_backward (struct network *net);
+void network_compile (struct network *net);

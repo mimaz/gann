@@ -78,8 +78,7 @@ network_forward (struct network *net)
 
     for (i = 0; i < count; i++) {
         lay = network_layer (net, i);
-        g_assert (lay->forward != NULL);
-        lay->forward (lay);
+        layer_forward (lay);
     }
 }
 
@@ -95,7 +94,20 @@ network_backward (struct network *net)
 
     for (i = count; i > 0; i--) {
         lay = network_layer (net, i - 1);
-        g_assert (lay->backward != NULL);
-        lay->backward (lay);
+        layer_backward (lay);
+    }
+}
+
+void
+network_compile (struct network *net)
+{
+    struct layer *lay;
+    int count, i;
+
+    count = network_layer_count (net);
+
+    for (i = 0; i < count; i++) {
+        lay = network_layer (net, i);
+        layer_compile (lay);
     }
 }
