@@ -14,7 +14,6 @@ layer_make_input (struct network *net,
 
     base->net = net;
     base->type = LAYER_INPUT;
-    base->activation = ACTIVATION_LINEAR;
     base->width = width;
     base->height = height;
     base->depth = depth;

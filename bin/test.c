@@ -7,39 +7,102 @@ main (gint argc, gchar **argv)
     GannOutputLayer *out;
     GannContext *context;
     GannNetwork *net;
-    gint i, p, q, r;
-    gfloat avg;
+    gint i, p, q, e;
+    gfloat r, loss;
 
-    srand(0);
+    /*
+     * Create context
+     */
     context = gann_context_new ();
-    net = gann_network_new_full (context, 0.8f, 0.9f, 1.0f);
+
+    /*
+     * Create network with given learning rate, momentum and weight decay
+     */
+    net = gann_network_new_full (context, 0.5f, 0.95f, 0.999995f);
+
+    /*
+     * Create input layer with shape 1x1x2
+     */
     in = gann_network_create_input (net, 1, 1, 2);
-    gann_network_create_dense (net, 1, 1, 10, GANN_ACTIVATION_SIGMOID);
-    gann_network_create_dense (net, 1, 1, 10, GANN_ACTIVATION_SIGMOID);
-    gann_network_create_dense (net, 1, 1, 1, GANN_ACTIVATION_SIGMOID);
+
+    /*
+     * Create some hidden layers
+     * The network is way over complex for such simple learning data set
+     * But here it's just for the example purpose
+     */
+    gann_network_create_dense (net, 1, 1, 10, "relu");
+    gann_network_create_dense (net, 1, 1, 100, "sigmoid");
+    gann_network_create_dense (net, 1, 1, 200, "softplus");
+    gann_network_create_dense (net, 1, 1, 200, "relu");
+    gann_network_create_dense (net, 1, 1, 200, "sigmoid");
+    gann_network_create_dense (net, 1, 1, 10, "softplus");
+    gann_network_create_dense (net, 1, 1, 1, "sigmoid");
+
+    /*
+     * Create output layer
+     * It's shape will be same as last hidden layer's one
+     */
     out = gann_network_create_output (net);
 
-    g_object_unref (context);
-
     for (i = 0; i < 100000; i++) {
+        /*
+         * Randomize two bits and make simple operation, in this case XOR
+         */
         p = rand () & 1;
         q = rand () & 1;
-        r = p ^ q;
+        e = p ^ q;
 
+        /*
+         * Put $p and $q variables as input
+         * -1 is a list guard
+         */
         gann_input_layer_set_input_floats (in, (gfloat) p, (gfloat) q, -1.0f);
-        gann_output_layer_set_truth_floats (out, (gfloat) r, -1.0f);
+
+        /*
+         * Propagate input data forward
+         * Here network calculates it's output value
+         */
         gann_network_forward (net);
+
+        /*
+         * Read calculated output
+         */
+        r = gann_layer_get_data (GANN_LAYER (out), NULL)[0];
+
+        /*
+         * Set expected result (truth) for given input
+         * -1 is a list guard
+         */
+        gann_output_layer_set_truth_floats (out, (gfloat) e, -1.0f);
+
+        /*
+         * Propagate error back
+         * Here the network is learning how to output expected result
+         */
         gann_network_backward (net);
-        avg = gann_network_get_average_loss (net);
-        g_assert (avg == avg);
-        if (i % 1 == 0) {
-            g_message ("%d result: %f %d %f", i, avg, r,
-                    gann_layer_get_data (GANN_LAYER (out), NULL)[0]);
-            if (gann_network_get_average_loss (net) < 0.1 && i > 10) {
-                break;
-            }
+
+        /*
+         * Get average error from last few training sessions
+         */
+        loss = gann_network_get_average_loss (net);
+
+        /*
+         * Print session summary
+         */
+        g_message ("%d: result: %f, expected: %d, loss %f",
+                   i, r, e, loss);
+
+        /*
+         * Break if the error is small enough
+         */
+        if (loss < 0.05f && i > 10) {
+            break;
         }
     }
 
+    /*
+     * Clear out objects
+     */
     g_object_unref (net);
+    g_object_unref (context);
 }

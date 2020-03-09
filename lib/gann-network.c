@@ -272,7 +272,7 @@ gann_network_create_dense (GannNetwork *self,
                            gint width,
                            gint height,
                            gint depth,
-                           GannActivation activation)
+                           const gchar *activation)
 {
     GannLayer *layer;
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "gann-activation.h"
+#include <glib-object.h>
 
 G_BEGIN_DECLS
 
@@ -26,7 +26,7 @@ GannLayer *gann_layer_new_dense (GannNetwork *network,
                                  gint width,
                                  gint height,
                                  gint depth,
-                                 GannActivation activation);
+                                 const gchar *activation);
 
 const gfloat *gann_layer_get_data (GannLayer *self,
                                    gsize *size);
@@ -36,6 +36,6 @@ GannNetwork *gann_layer_get_network (GannLayer *self);
 gint gann_layer_get_width (GannLayer *self);
 gint gann_layer_get_height (GannLayer *self);
 gint gann_layer_get_depth (GannLayer *self);
-GannActivation gann_layer_get_activation (GannLayer *self);
+const gchar *gann_layer_get_activation (GannLayer *self);
 
 G_END_DECLS

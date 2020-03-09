@@ -34,7 +34,6 @@ layer_make_output (struct network *net)
     base->net = net;
     base->prev = prev;
     base->type = LAYER_OUTPUT;
-    base->activation = ACTIVATION_LINEAR;
     base->width = prev->width;
     base->height = prev->height;
     base->depth = prev->depth;

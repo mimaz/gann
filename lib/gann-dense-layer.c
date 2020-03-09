@@ -38,7 +38,7 @@ constructed (GObject *gobj)
     network = gann_layer_get_network (layer);
 
     core = layer_make_full (gann_network_get_core (network),
-                            gann_layer_get_core_activation (layer),
+                            gann_layer_get_activation (layer),
                             gann_layer_get_width (layer),
                             gann_layer_get_height (layer),
                             gann_layer_get_depth (layer));

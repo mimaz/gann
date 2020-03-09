@@ -1,6 +1,5 @@
 #pragma once
 
-#include "activation.h"
 #include "context.h"
 
 enum layer_type
@@ -19,7 +18,7 @@ struct layer
     struct network *net;
     struct layer *prev;
     enum layer_type type;
-    enum activation_type activation;
+    const char *activation;
 
     cl_mem value_mem;
     cl_mem derivative_mem;
@@ -46,11 +45,11 @@ struct layer
 };
 
 struct layer *layer_make_convolution (struct network *net,
-                                      enum activation_type activation,
+                                      const char *activation,
                                       int kernel_width, int kernel_height,
                                       int filter_count);
 struct layer *layer_make_full (struct network *net,
-                               enum activation_type activation,
+                               const char *activation,
                                int width, int height, int depth);
 struct layer *layer_make_input (struct network *net,
                                 int width, int height, int depth);

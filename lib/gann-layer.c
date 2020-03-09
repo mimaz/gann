@@ -14,7 +14,7 @@ typedef struct {
     gint width;
     gint height;
     gint depth;
-    GannActivation activation;
+    gchar *activation;
 
     float *value_buff;
 
@@ -94,14 +94,13 @@ gann_layer_class_init (GannLayerClass *cls)
                           G_PARAM_STATIC_STRINGS);
 
     props[PROP_ACTIVATION] =
-        g_param_spec_enum ("activation",
-                           "Activation",
-                           "Layer activation",
-                           GANN_TYPE_ACTIVATION,
-                           GANN_ACTIVATION_LINEAR,
-                           G_PARAM_READWRITE |
-                           G_PARAM_CONSTRUCT_ONLY |
-                           G_PARAM_STATIC_STRINGS);
+        g_param_spec_string ("activation",
+                             "Activation",
+                             "Layer activation",
+                             "sigmoid",
+                             G_PARAM_READWRITE |
+                             G_PARAM_CONSTRUCT_ONLY |
+                             G_PARAM_STATIC_STRINGS);
 
     g_object_class_install_properties (gcls, N_PROPS, props);
 }
@@ -159,7 +158,8 @@ set_property (GObject *gobj,
         break;
 
     case PROP_ACTIVATION:
-        p->activation = g_value_get_enum (value);
+        g_clear_pointer (&p->activation, g_free);
+        p->activation = g_value_dup_string (value);
         break;
 
     default:
@@ -195,7 +195,7 @@ get_property (GObject *gobj,
         break;
 
     case PROP_ACTIVATION:
-        g_value_set_enum (value, p->activation);
+        g_value_set_string (value, p->activation);
         break;
 
     default:
@@ -250,7 +250,7 @@ gann_layer_get_depth (GannLayer *self)
     return p->depth;
 }
 
-GannActivation
+const gchar *
 gann_layer_get_activation (GannLayer *self)
 {
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
@@ -273,26 +273,6 @@ gann_layer_get_core (GannLayer *self)
 {
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
     return p->l;
-}
-
-enum activation_type
-gann_layer_get_core_activation (GannLayer *self)
-{
-    static enum activation_type core_v[] = {
-        [GANN_ACTIVATION_LINEAR] = ACTIVATION_LINEAR,
-        [GANN_ACTIVATION_RELU] = ACTIVATION_RELU,
-        [GANN_ACTIVATION_SIGMOID] = ACTIVATION_SIGMOID,
-        [GANN_ACTIVATION_LEAKY] = ACTIVATION_LEAKY,
-        [GANN_ACTIVATION_ELU] = ACTIVATION_ELU,
-        [GANN_ACTIVATION_STEP] = ACTIVATION_STEP,
-    };
-
-    GannActivation act;
-
-    act = gann_layer_get_activation (self);
-    g_assert (act < G_N_ELEMENTS (core_v));
-
-    return core_v[act];
 }
 
 GannLayer *
@@ -322,7 +302,7 @@ gann_layer_new_dense (GannNetwork *network,
                       gint width,
                       gint height,
                       gint depth,
-                      GannActivation activation)
+                      const gchar *activation)
 {
     return g_object_new (GANN_TYPE_DENSE_LAYER,
                          "network", network,

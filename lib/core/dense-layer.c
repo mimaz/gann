@@ -1,10 +1,10 @@
 #include "layer.h"
 #include "network.h"
 #include "context.h"
+#include "util.h"
 
 #include <stdio.h>
-
-#define USE_OPENCL
+#include <math.h>
 
 struct dense_layer
 {
@@ -22,7 +22,7 @@ static void release (struct layer *lay);
 
 struct layer *
 layer_make_full (struct network *net,
-                 enum activation_type activation,
+                 const char *activation,
                  int width, int height, int depth)
 {
     struct dense_layer *dense;
@@ -134,7 +134,7 @@ compile (struct layer *lay)
     ctx = lay->net->ctx;
 
     context_program_clear (ctx);
-    context_program_activation (ctx, "softplus");
+    context_program_activation (ctx, lay->activation);
     context_program_option (ctx, "-DINPUTS=%d", lay->prev->size);
     context_program_option (ctx, "-DOUTPUTS=%d", lay->size);
     context_program_option (ctx, "-DWITH_DERIVATIVE");
@@ -164,7 +164,7 @@ forward (struct layer *lay)
     dense = (struct dense_layer *) lay;
 
     locsiz = MIN (lay->size, lay->net->ctx->group_size);
-    globsiz = ceilf ((float) lay->size / locsiz) * locsiz;
+    globsiz = util_upper_multiply (lay->size, locsiz);
     kern = dense->forward;
 
     clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->prev->value_mem);

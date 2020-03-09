@@ -57,6 +57,7 @@ context_create ()
 
     add_activation_from_source (ctx, "sigmoid", "sigmoid.cl");
     add_activation_from_source (ctx, "softplus", "softplus.cl");
+    add_activation_from_source (ctx, "relu", "relu.cl");
 
     return ctx;
 }
