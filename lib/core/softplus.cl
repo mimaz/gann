@@ -4,9 +4,9 @@ float activate (float x, float *d)
 float activate (float x)
 #endif
 {
-    float s = 1.0f / (1.0f + exp (-x));
+    float e = exp (x);
 #ifdef WITH_DERIVATIVE
-    *d = s * (1.0f - s);
+    *d = e / (1.0f + e);
 #endif
-    return s;
+    return log (1.0f + e);
 }

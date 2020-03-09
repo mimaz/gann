@@ -56,6 +56,7 @@ context_create ()
     context_program_kernel (ctx, "clear", &ctx->pattern_kernel);
 
     add_activation_from_source (ctx, "sigmoid", "sigmoid.cl");
+    add_activation_from_source (ctx, "softplus", "softplus.cl");
 
     return ctx;
 }

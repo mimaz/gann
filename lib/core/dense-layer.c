@@ -134,7 +134,7 @@ compile (struct layer *lay)
     ctx = lay->net->ctx;
 
     context_program_clear (ctx);
-    context_program_activation (ctx, "sigmoid");
+    context_program_activation (ctx, "softplus");
     context_program_option (ctx, "-DINPUTS=%d", lay->prev->size);
     context_program_option (ctx, "-DOUTPUTS=%d", lay->size);
     context_program_option (ctx, "-DWITH_DERIVATIVE");

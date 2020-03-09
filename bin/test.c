@@ -14,8 +14,8 @@ main (gint argc, gchar **argv)
     context = gann_context_new ();
     net = gann_network_new_full (context, 0.8f, 0.9f, 1.0f);
     in = gann_network_create_input (net, 1, 1, 2);
-    gann_network_create_dense (net, 1, 1, 20, GANN_ACTIVATION_SIGMOID);
-    gann_network_create_dense (net, 1, 1, 20, GANN_ACTIVATION_SIGMOID);
+    gann_network_create_dense (net, 1, 1, 10, GANN_ACTIVATION_SIGMOID);
+    gann_network_create_dense (net, 1, 1, 10, GANN_ACTIVATION_SIGMOID);
     gann_network_create_dense (net, 1, 1, 1, GANN_ACTIVATION_SIGMOID);
     out = gann_network_create_output (net);
 
