@@ -4,5 +4,6 @@
         <file>dense-layer.cl</file>
         <file>output-layer.cl</file>
         <file>sigmoid.cl</file>
+        <file>fill-pattern.cl</file>
     </gresource>
 </gresources>

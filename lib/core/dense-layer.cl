@@ -1,9 +1,13 @@
 __kernel void forward (__global const float *input_value_v,
                        __global const float *weight_v,
                        __global const float *bias_v,
-                       __global float *value_v)
+                       __global float *value_v
+#ifdef WITH_DERIVATIVE
+                       , __global float *derivative_v
+#endif
+                       )
 {
-    __private float sum;
+    __private float sum, derivative;
     __private int outid, inid;
 
     outid = get_global_id (0);
@@ -15,15 +19,17 @@ __kernel void forward (__global const float *input_value_v,
             sum += input_value_v[inid] * weight_v[outid * INPUTS + inid];
         }
 
-        sum = 1.0f / (1.0f + exp (-sum));
-        value_v[outid] = sum;
+#ifdef WITH_DERIVATIVE
+        value_v[outid] = activate (sum, &derivative);
+        derivative_v[outid] = derivative;
+#else
+        value_v[outid] = activate (sum);
+#endif
     }
 }
 
-__kernel void derive_gradient (__global const float *value_v,
-#ifdef DERIVATIVE_WITH_INPUT
-                               __global const float *input_v,
-#endif
+#ifdef WITH_DERIVATIVE
+__kernel void derive_gradient (__global const float *derivative_v,
                                __global float *gradient_v)
 {
     __private int outid;
@@ -31,12 +37,7 @@ __kernel void derive_gradient (__global const float *value_v,
     outid = get_global_id (0);
 
     if (outid < OUTPUTS) {
-#ifdef DERIVATIVE_WITH_INPUT
-        gradient_v[outid] *= activation_derivative (value_v[outid],
-                                                    input_v[outid]);
-#else
-        gradient_v[outid] *= activation_derivative (value_v[outid]);
-#endif
+        gradient_v[outid] *= derivative_v[outid];
     }
 }
 
@@ -80,7 +81,7 @@ __kernel void backward (__global const float *input_value_v,
         }
 
 #ifdef CALC_GRADIENT
-        input_gradient_v[inid] = sum;
+        input_gradient_v[inid] += sum;
 #endif
     }
 }
@@ -109,3 +110,4 @@ __kernel void backward_bias (__global const float *gradient_v,
         delta_v[id] = d;
     }
 }
+#endif

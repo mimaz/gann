@@ -22,6 +22,7 @@ struct layer
     enum activation_type activation;
 
     cl_mem value_mem;
+    cl_mem derivative_mem;
     cl_mem gradient_mem;
     cl_mem bias_mem;
     cl_mem bias_delta_mem;
@@ -64,10 +65,8 @@ void layer_load_value (struct layer *lay,
                        float *buff,
                        int offset,
                        int count);
+void layer_clear_gradient (struct layer *lay);
 
-void layer_create_kernel (struct layer *lay,
-                          cl_kernel *handle,
-                          const char *name);
 void layer_create_buffer (struct layer *lay,
                           cl_mem *handle,
                           int size,

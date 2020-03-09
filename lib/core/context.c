@@ -1,18 +1,7 @@
 #include "context.h"
 #include "network.h"
+#include "util.h"
 #include "cl_code.h"
-
-static void
-free_activation (gpointer ptr)
-{
-    struct activation *act;
-
-    act = ptr;
-
-    g_free (act->name);
-    g_free (act->code);
-    g_free (act);
-}
 
 static void
 add_activation_from_source (struct context *ctx,
@@ -44,10 +33,8 @@ context_create ()
     ctx->resource = cl_code_get_resource ();
     ctx->activationtable = g_hash_table_new_full (g_str_hash,
                                                   g_str_equal,
-                                                  /* key owned by */
-                                                  /* value object */
-                                                  NULL, 
-                                                  free_activation);
+                                                  g_free,
+                                                  g_free);
 
     err = clGetPlatformIDs (1, &plat_id, NULL);
     g_assert (err == 0);
@@ -64,6 +51,9 @@ context_create ()
     ctx->group_size = 256;
 
     context_program_clear (ctx);
+    context_program_file (ctx, "fill-pattern.cl");
+    context_program_build (ctx, &ctx->pattern_program);
+    context_program_kernel (ctx, "clear", &ctx->pattern_kernel);
 
     add_activation_from_source (ctx, "sigmoid", "sigmoid.cl");
 
@@ -128,54 +118,9 @@ context_add_activation (struct context *ctx,
                         const char *name,
                         const char *code)
 {
-    const char *ident, *openpar, *closepar;
-    struct activation *act;
-    char *name_d, *code_d;
-    int argcount;
-
-    ident = strstr (code, "activation_derivative");
-    g_assert (ident != NULL);
-
-    openpar = strchr (ident, '(');
-    g_assert (openpar != NULL);
-
-    closepar = strchr (openpar, ')');
-    g_assert (closepar != NULL);
-
-    argcount = 1;
-
-    while (openpar != closepar) {
-        if (*openpar == ',') {
-            argcount++;
-        }
-
-        openpar++;
-    }
-
-    g_assert (argcount == 1 || argcount == 2);
-
-    name_d = g_strdup (name);
-    code_d = g_strdup (code);
-
-    act = g_new (struct activation, 1);
-    act->name = name_d;
-    act->code = code_d;
-    act->needinput = argcount == 2;
-
     g_hash_table_insert (ctx->activationtable,
-                         name_d, act);
-}
-
-int
-context_need_input (struct context *ctx,
-                    const char *actname)
-{
-    struct activation *act;
-
-    act = g_hash_table_lookup (ctx->activationtable, actname);
-    g_assert (act != NULL);
-
-    return act->needinput;
+                         g_strdup (name),
+                         g_strdup (code));
 }
 
 void
@@ -210,10 +155,12 @@ void
 context_program_activation (struct context *ctx,
                             const char *name)
 {
-    struct activation *act;
+    const char *code;
 
-    act = g_hash_table_lookup (ctx->activationtable, name);
-    g_assert (act != NULL);
+    code = g_hash_table_lookup (ctx->activationtable, name);
+    g_assert (code != NULL);
+
+    context_program_code (ctx, code);
 }
 
 void
@@ -238,13 +185,14 @@ context_program_code (struct context *ctx,
     g_ptr_array_insert (ctx->sources, -1, g_strdup (code));
 }
 
-cl_program
-context_program_build (struct context *ctx)
+void
+context_program_build (struct context *ctx,
+                       cl_program *handle)
 {
+    size_t logsize;
+    char *log;
     cl_program prog;
     cl_int err;
-    char *log;
-    size_t logsize;
 
     prog = clCreateProgramWithSource (ctx->context,
                                       ctx->sources->len,
@@ -254,7 +202,9 @@ context_program_build (struct context *ctx)
 
     g_assert (err == CL_SUCCESS);
 
-    err = clBuildProgram (prog, 0, NULL, ctx->options->str, NULL, NULL);
+    err = clBuildProgram (prog, 0, NULL,
+                          ctx->options != NULL ? ctx->options->str : NULL,
+                          NULL, NULL);
 
     if (err != CL_SUCCESS) {
         clGetProgramBuildInfo (prog, ctx->device,
@@ -272,5 +222,105 @@ context_program_build (struct context *ctx)
 
     context_program_clear (ctx);
 
-    return prog;
+    ctx->built_program = prog;
+    *handle = prog;
+}
+
+void
+context_program_kernel (struct context *ctx,
+                        const char *name,
+                        cl_kernel *handle)
+{
+    cl_kernel kern;
+    cl_int err;
+
+    kern = clCreateKernel (ctx->built_program, name, &err);
+    g_assert (err == CL_SUCCESS);
+
+    *handle = kern;
+}
+
+void
+context_fill_pattern (struct context *ctx,
+                      cl_mem mem,
+                      cl_int memsize,
+                      const void *data,
+                      cl_int datasize,
+                      cl_int evnum,
+                      const cl_event *evlist,
+                      cl_event *ev)
+{
+    cl_int err;
+    cl_event wrev;
+    cl_kernel kern;
+    cl_int count;
+
+    if (ctx->pattern_mem == 0 || datasize > ctx->pattern_capacity) {
+        g_clear_pointer (&ctx->pattern_cache, g_free);
+        ctx->pattern_cache = g_malloc (datasize);
+
+        if (ctx->pattern_mem != 0) {
+            clReleaseMemObject (ctx->pattern_mem);
+        }
+
+        ctx->pattern_mem = clCreateBuffer (ctx->context,
+                                           CL_MEM_READ_WRITE,
+                                           datasize,
+                                           NULL, &err);
+        ctx->pattern_capacity = datasize;
+        g_assert (err == CL_SUCCESS);
+    }
+
+    g_assert (ctx->pattern_cache != NULL);
+
+    memcpy (ctx->pattern_cache, data, datasize);
+
+    if (datasize != ctx->pattern_size ||
+        memcmp (data, ctx->pattern_cache, datasize) != 0) {
+
+        clEnqueueWriteBuffer (ctx->queue,
+                              ctx->pattern_mem,
+                              /* CL_FALSE, */
+                              CL_TRUE,
+                              0, datasize,
+                              ctx->pattern_cache,
+                              0, NULL, &wrev);
+    } else {
+        wrev = 0;
+    }
+
+    if (memsize % datasize != 0) {
+        g_error ("data size is not aligned to pattern size");
+    }
+
+    kern = ctx->pattern_kernel;
+    count = memsize / datasize;
+
+    clSetKernelArg (kern, 0, sizeof (cl_mem), &ctx->pattern_mem);
+    clSetKernelArg (kern, 1, sizeof (cl_mem), &mem);
+    clSetKernelArg (kern, 2, sizeof (cl_int), &datasize);
+    clSetKernelArg (kern, 3, sizeof (cl_int), &count);
+
+    context_run_sparse (ctx, kern, count, wrev != 0, &wrev, ev);
+}
+
+void
+context_run_sparse (struct context *ctx,
+                    cl_kernel kern,
+                    int units,
+                    cl_int evcnt,
+                    const cl_event *evlist,
+                    cl_event *ev)
+{
+    size_t globsize, locsize;
+    cl_int err;
+
+    locsize = MIN (ctx->group_size, units);
+    globsize = util_upper_multiply (units, locsize);
+
+    err = clEnqueueNDRangeKernel (ctx->queue,
+                                  kern, 1, NULL,
+                                  &globsize, &locsize,
+                                  evcnt, evlist, ev);
+    g_assert (err == CL_SUCCESS);
 }

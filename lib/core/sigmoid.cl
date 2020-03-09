@@ -1,9 +1,16 @@
-float activation_value (float input)
+#ifdef WITH_DERIVATIVE
+float activate (float input,
+                float *derivative)
+#else
+float activate (float input)
+#endif
 {
-    return 1.0f / (1.0f + exp (-input));
-}
+    float out;
 
-float activation_derivative (float value)
-{
-    return value * (1.0f - value);
+    out = 1.0f / (1.0f + exp (-input));
+#ifdef WITH_DERIVATIVE
+    *derivative = out * (1.0f - out);
+#endif
+
+    return out;
 }

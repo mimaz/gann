@@ -65,17 +65,19 @@ layer_load_value (struct layer *lay,
 }
 
 void
-layer_create_kernel (struct layer *lay,
-                     cl_kernel *handle,
-                     const char *name)
+layer_clear_gradient (struct layer *lay)
 {
-    cl_kernel kern;
-    cl_int err;
+    cl_float zero;
 
-    kern = clCreateKernel (lay->program, name, &err);
-    g_assert (err == CL_SUCCESS);
-
-    *handle = kern;
+    if (lay->gradient_mem != 0) {
+        zero = 0;
+        context_fill_pattern (lay->net->ctx,
+                              lay->gradient_mem,
+                              lay->size * sizeof (cl_float),
+                              &zero,
+                              sizeof (cl_float),
+                              0, NULL, NULL);
+    }
 }
 
 void

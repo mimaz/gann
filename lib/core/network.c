@@ -90,6 +90,11 @@ network_backward (struct network *net)
 
     count = network_layer_count (net);
 
+    for (i = 0; i < count; i++) {
+        lay = network_layer (net, i);
+        layer_clear_gradient (lay);
+    }
+
     net->loss = 0;
 
     for (i = count; i > 0; i--) {

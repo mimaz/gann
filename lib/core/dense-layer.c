@@ -52,6 +52,8 @@ layer_make_full (struct network *net,
 
     layer_create_buffer (base, &base->value_mem,
                          size, CL_MEM_READ_WRITE);
+    layer_create_buffer (base, &base->derivative_mem,
+                         size, CL_MEM_READ_WRITE);
     layer_create_buffer (base, &base->gradient_mem,
                          size, CL_MEM_READ_WRITE);
     layer_create_buffer (base, &base->bias_mem,
@@ -132,20 +134,21 @@ compile (struct layer *lay)
     ctx = lay->net->ctx;
 
     context_program_clear (ctx);
+    context_program_activation (ctx, "sigmoid");
     context_program_option (ctx, "-DINPUTS=%d", lay->prev->size);
     context_program_option (ctx, "-DOUTPUTS=%d", lay->size);
+    context_program_option (ctx, "-DWITH_DERIVATIVE");
 
     if (lay->prev->gradient_mem != 0) {
         context_program_option (ctx, "-DCALC_GRADIENT");
     }
 
     context_program_file (ctx, "dense-layer.cl");
-    lay->program = context_program_build (ctx);
-
-    layer_create_kernel (lay, &dense->forward, "forward");
-    layer_create_kernel (lay, &dense->derive_gradient, "derive_gradient");
-    layer_create_kernel (lay, &dense->backward, "backward");
-    layer_create_kernel (lay, &dense->backward_bias, "backward_bias");
+    context_program_build (ctx, &lay->program);
+    context_program_kernel (ctx, "forward", &dense->forward);
+    context_program_kernel (ctx, "derive_gradient", &dense->derive_gradient);
+    context_program_kernel (ctx, "backward", &dense->backward);
+    context_program_kernel (ctx, "backward_bias", &dense->backward_bias);
 }
 
 static void
@@ -168,6 +171,9 @@ forward (struct layer *lay)
     clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->weight_mem);
     clSetKernelArg (kern, 2, sizeof (cl_mem), &lay->bias_mem);
     clSetKernelArg (kern, 3, sizeof (cl_mem), &lay->value_mem);
+    if (1) {/* backprop */
+        clSetKernelArg (kern, 4, sizeof (cl_mem), &lay->derivative_mem);
+    }
 
     clFinish (lay->net->ctx->queue);
     err = clEnqueueNDRangeKernel (lay->net->ctx->queue,
@@ -195,7 +201,7 @@ backward (struct layer *lay)
     globsiz = ceilf ((float) lay->prev->size / locsiz) * locsiz;
     kern = dense->derive_gradient;
 
-    clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->value_mem);
+    clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->derivative_mem);
     clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->gradient_mem);
 
     err = clEnqueueNDRangeKernel (lay->net->ctx->queue,

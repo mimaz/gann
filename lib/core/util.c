@@ -1,6 +1,9 @@
 #include "utils.h"
 
-int util_upper_power_2 (int v)
+#include <math.h>
+
+int
+util_upper_power_2 (int v)
 {
     int p2;
 
@@ -11,4 +14,10 @@ int util_upper_power_2 (int v)
     }
 
     return p2;
+}
+
+int
+util_upper_multiply (int v, int g)
+{
+    return ceilf ((float) v / g) * g;
 }

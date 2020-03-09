@@ -114,9 +114,8 @@ compile (struct layer *lay)
         context_program_option (ctx, "-DCALC_GRADIENT");
     }
 
-    lay->program = context_program_build (ctx);
-
-    layer_create_kernel (lay, &out->backprop_kern, "backprop");
+    context_program_build (ctx, &lay->program);
+    context_program_kernel (ctx, "backprop", &out->backprop_kern);
 }
 
 static void
