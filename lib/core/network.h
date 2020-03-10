@@ -23,6 +23,8 @@
 
 #include <glib.h>
 
+#define NETWORK_FLAG_BACKPROP 1
+
 struct layer;
 struct context;
 
@@ -33,6 +35,9 @@ struct network
 
     /* array of layer pointers */
     GPtrArray *layers;
+
+    /* some flags */
+    int flags;
 
     /* lates error loss */
     float loss;

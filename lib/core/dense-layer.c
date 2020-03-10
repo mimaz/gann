@@ -30,6 +30,7 @@
 struct dense_layer
 {
     struct layer base;
+    cl_program program;
     cl_kernel forward;
     cl_kernel derive_gradient;
     cl_kernel backward;
@@ -42,20 +43,20 @@ static void backward (struct layer *lay);
 static void release (struct layer *lay);
 
 struct layer *
-layer_make_full (struct network *net,
-                 const char *activation,
-                 int width, int height, int depth)
+layer_make_dense (struct network *net,
+                  int width, int height, int depth,
+                  const char *activation,
+                  struct layer *prev)
 {
     struct dense_layer *dense;
-    struct layer *base, *prev;
-    int size, weights, i;
+    struct layer *base;
 
     dense = g_new0 (struct dense_layer, 1);
     base = (struct layer *) dense;
-    prev = network_layer_last (net);
 
-    size = width * height * depth;
-    weights = prev->size * size;
+    if (prev == NULL) {
+        prev = network_layer_last (net);
+    }
 
     base->net = net;
     base->prev = prev;
@@ -64,81 +65,13 @@ layer_make_full (struct network *net,
     base->width = width;
     base->height = height;
     base->depth = depth;
-    base->size = size;
-    base->weights = weights;
+    base->size = width * height * depth;
     base->compile = compile;
     base->forward = forward;
     base->backward = backward;
     base->release = release;
 
-    layer_create_buffer (base, &base->value_mem,
-                         size, CL_MEM_READ_WRITE);
-    layer_create_buffer (base, &base->derivative_mem,
-                         size, CL_MEM_READ_WRITE);
-    layer_create_buffer (base, &base->gradient_mem,
-                         size, CL_MEM_READ_WRITE);
-    layer_create_buffer (base, &base->bias_mem,
-                         size, CL_MEM_READ_WRITE);
-    layer_create_buffer (base, &base->bias_delta_mem,
-                         size, CL_MEM_READ_WRITE);
-    layer_create_buffer (base, &base->weight_mem,
-                         weights, CL_MEM_READ_WRITE);
-    layer_create_buffer (base, &base->delta_mem,
-                         weights, CL_MEM_READ_WRITE);
-
     network_push_layer (net, base);
-
-    g_autofree float *gradient_v = g_new (float, size);
-    g_autofree float *bias_v = g_new (float, size);
-    g_autofree float *bias_delta_v = g_new (float, size);
-    g_autofree float *delta_v = g_new (float, weights);
-    g_autofree float *weight_v = g_new (float, weights);
-
-    for (i = 0; i < weights; i++) {
-        float r1 = cosf (2.0f * (float) M_PI * rand () / RAND_MAX);
-        float r2 = sqrtf (-2.0f  * logf ((float) rand () / RAND_MAX));
-        float d = (r1 * r2) * sqrtf (2.0f / prev->size);
-
-        weight_v[i] = d;
-        delta_v[i] = 0;
-    }
-
-    for (i = 0; i < size; i++) {
-        bias_v[i] = 0;
-        bias_delta_v[i] = 0;
-        gradient_v[i] = 0;
-    }
-
-    clEnqueueWriteBuffer (net->ctx->queue,
-                          base->gradient_mem,
-                          CL_TRUE,
-                          0, size * sizeof (cl_float),
-                          gradient_v,
-                          0, NULL, NULL);
-    clEnqueueWriteBuffer (net->ctx->queue,
-                          base->bias_mem,
-                          CL_TRUE,
-                          0, size * sizeof (cl_float),
-                          bias_v,
-                          0, NULL, NULL);
-    clEnqueueWriteBuffer (net->ctx->queue,
-                          base->bias_delta_mem,
-                          CL_TRUE,
-                          0, size * sizeof (cl_float),
-                          bias_delta_v,
-                          0, NULL, NULL);
-    clEnqueueWriteBuffer (net->ctx->queue,
-                          base->delta_mem,
-                          CL_TRUE,
-                          0, weights * sizeof (cl_float),
-                          delta_v,
-                          0, NULL, NULL);
-    clEnqueueWriteBuffer (net->ctx->queue,
-                          base->weight_mem,
-                          CL_TRUE,
-                          0, weights * sizeof (cl_float),
-                          weight_v,
-                          0, NULL, NULL);
 
     return base;
 }
@@ -148,28 +81,85 @@ compile (struct layer *lay)
 {
     struct dense_layer *dense;
     struct context *ctx;
+    g_autofree float *weight_v;
+    int i;
+    cl_float zero;
 
     g_assert (lay->type == LAYER_DENSE);
+    g_assert ((lay->flags & LAYER_FLAG_COMPILED) == 0);
 
     dense = (struct dense_layer *) lay;
     ctx = lay->net->ctx;
+
+    lay->weights = lay->prev->size * lay->size;
+
+    layer_create_buffer (lay, &lay->value_mem,
+                         lay->size, CL_MEM_READ_WRITE);
+    layer_create_buffer (lay, &lay->derivative_mem,
+                         lay->size, CL_MEM_READ_WRITE);
+    layer_create_buffer (lay, &lay->gradient_mem,
+                         lay->size, CL_MEM_READ_WRITE);
+    layer_create_buffer (lay, &lay->bias_mem,
+                         lay->size, CL_MEM_READ_WRITE);
+    layer_create_buffer (lay, &lay->bias_delta_mem,
+                         lay->size, CL_MEM_READ_WRITE);
+    layer_create_buffer (lay, &lay->weight_mem,
+                         lay->weights, CL_MEM_READ_WRITE);
+    layer_create_buffer (lay, &lay->delta_mem,
+                         lay->weights, CL_MEM_READ_WRITE);
+
+    weight_v = g_new (float, lay->weights);
+
+    for (i = 0; i < lay->weights; i++) {
+        float r1 = cosf (2.0f * (float) M_PI * rand () / RAND_MAX);
+        float r2 = sqrtf (-2.0f  * logf ((float) rand () / RAND_MAX));
+        float d = (r1 * r2) * sqrtf (2.0f / lay->prev->size);
+
+        weight_v[i] = d;
+    }
+
+    clEnqueueWriteBuffer (ctx->queue,
+                          lay->weight_mem,
+                          CL_TRUE,
+                          0, lay->weights * sizeof (cl_float),
+                          weight_v,
+                          0, NULL, NULL);
+
+    zero = 0;
+    context_fill_pattern (ctx, lay->bias_mem, 0,
+                          lay->size * sizeof (cl_float),
+                          &zero, sizeof (zero),
+                          0, NULL, NULL);
+    context_fill_pattern (ctx, lay->bias_delta_mem, 0,
+                          lay->size * sizeof (cl_float),
+                          &zero, sizeof (zero),
+                          0, NULL, NULL);
+    context_fill_pattern (ctx, lay->delta_mem, 0,
+                          lay->weights * sizeof (cl_float),
+                          &zero, sizeof (zero),
+                          0, NULL, NULL);
 
     context_program_clear (ctx);
     context_program_activation (ctx, lay->activation);
     context_program_option (ctx, "-DINPUTS=%d", lay->prev->size);
     context_program_option (ctx, "-DOUTPUTS=%d", lay->size);
-    context_program_option (ctx, "-DWITH_DERIVATIVE");
+
+    if (lay->net->flags & NETWORK_FLAG_BACKPROP) {
+        context_program_option (ctx, "-DWITH_DERIVATIVE");
+    }
 
     if (lay->prev->gradient_mem != 0) {
         context_program_option (ctx, "-DCALC_GRADIENT");
     }
 
     context_program_file (ctx, "dense-layer.cl");
-    context_program_build (ctx, &lay->program);
+    context_program_build (ctx, &dense->program);
     context_program_kernel (ctx, "forward", &dense->forward);
     context_program_kernel (ctx, "derive_gradient", &dense->derive_gradient);
     context_program_kernel (ctx, "backward", &dense->backward);
     context_program_kernel (ctx, "backward_bias", &dense->backward_bias);
+
+    lay->flags |= LAYER_FLAG_COMPILED;
 }
 
 static void
@@ -181,7 +171,6 @@ forward (struct layer *lay)
     cl_int err;
 
     g_assert (lay->type == LAYER_DENSE);
-
     dense = (struct dense_layer *) lay;
 
     locsiz = MIN (lay->size, lay->net->ctx->group_size);
@@ -192,11 +181,11 @@ forward (struct layer *lay)
     clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->weight_mem);
     clSetKernelArg (kern, 2, sizeof (cl_mem), &lay->bias_mem);
     clSetKernelArg (kern, 3, sizeof (cl_mem), &lay->value_mem);
-    if (1) {/* backprop */
+
+    if (lay->net->flags & NETWORK_FLAG_BACKPROP) {
         clSetKernelArg (kern, 4, sizeof (cl_mem), &lay->derivative_mem);
     }
 
-    clFinish (lay->net->ctx->queue);
     err = clEnqueueNDRangeKernel (lay->net->ctx->queue,
                                   kern, 1, NULL,
                                   &globsiz, &locsiz,
@@ -277,4 +266,21 @@ backward (struct layer *lay)
 static void
 release (struct layer *lay)
 {
+    struct dense_layer *dense;
+
+    g_assert (lay->type == LAYER_DENSE);
+    dense = (struct dense_layer *) lay;
+
+    clReleaseKernel (dense->forward);
+    clReleaseKernel (dense->derive_gradient);
+    clReleaseKernel (dense->backward);
+    clReleaseKernel (dense->backward_bias);
+    clReleaseProgram (dense->program);
+    clReleaseMemObject (lay->value_mem);
+    clReleaseMemObject (lay->derivative_mem);
+    clReleaseMemObject (lay->gradient_mem);
+    clReleaseMemObject (lay->bias_mem);
+    clReleaseMemObject (lay->bias_delta_mem);
+    clReleaseMemObject (lay->weight_mem);
+    clReleaseMemObject (lay->delta_mem);
 }

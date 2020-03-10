@@ -58,11 +58,12 @@ constructed (GObject *gobj)
     layer = GANN_LAYER (gobj);
     network = gann_layer_get_network (layer);
 
-    core = layer_make_full (gann_network_get_core (network),
-                            gann_layer_get_activation (layer),
-                            gann_layer_get_width (layer),
-                            gann_layer_get_height (layer),
-                            gann_layer_get_depth (layer));
+    core = layer_make_dense (gann_network_get_core (network),
+                             gann_layer_get_width (layer),
+                             gann_layer_get_height (layer),
+                             gann_layer_get_depth (layer),
+                             gann_layer_get_activation (layer),
+                             NULL);
     gann_layer_set_core (layer, core);
 
     G_OBJECT_CLASS (gann_dense_layer_parent_class)->constructed (gobj);

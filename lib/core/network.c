@@ -30,11 +30,13 @@ network_create (struct context *ctx)
 
     net = g_new0 (struct network, 1);
     net->ctx = ctx;
-    net->layers = g_ptr_array_new ();
+    net->layers = g_ptr_array_new_with_free_func ((GDestroyNotify)
+                                                  layer_free);
+    net->flags = NETWORK_FLAG_BACKPROP;
     net->loss = 0;
-    net->rate = 0.001f;
-    net->momentum = 0.99f;
-    net->decay = 0.00001f;
+    net->rate = 0.5f;
+    net->momentum = 0.9f;
+    net->decay = 1.0f;
 
     /* manually add itself to the context */
     ctx->netlist = g_slist_prepend (ctx->netlist, net);
@@ -45,18 +47,10 @@ network_create (struct context *ctx)
 void
 network_free (struct network *net)
 {
-    struct layer *lay;
-    int count, i;
-
     /* manually remove itself from the context */
     net->ctx->netlist = g_slist_remove (net->ctx->netlist, net);
 
-    count = network_layer_count (net);
-
-    for (i = 0; i < count; i++) {
-        lay = network_layer (net, i);
-        layer_free (lay);
-    }
+    g_ptr_array_unref (net->layers);
 }
 
 struct layer *

@@ -27,16 +27,10 @@
 void
 layer_compile (struct layer *lay)
 {
-    if (layer_is_compiled (lay) == 0) {
+    if ((lay->flags & LAYER_FLAG_COMPILED) == 0) {
         lay->compile (lay);
-        g_assert (layer_is_compiled (lay) != 0);
+        g_assert (lay->flags & LAYER_FLAG_COMPILED);
     }
-}
-
-int
-layer_is_compiled (struct layer *lay)
-{
-    return lay->compile == NULL || lay->program != 0;
 }
 
 void

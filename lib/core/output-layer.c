@@ -29,6 +29,7 @@ struct output_layer
     cl_mem truth_mem;
     cl_mem loss_mem;
     cl_event truth_event;
+    cl_program program;
     cl_kernel backprop_kern;
     float loss;
 };
@@ -65,30 +66,6 @@ layer_make_output (struct network *net)
     base->backward = backward;
     base->release = release;
 
-    layer_create_buffer (base, &base->value_mem, size,
-                         CL_MEM_READ_WRITE);
-    layer_create_buffer (base, &out->truth_mem, size,
-                         CL_MEM_READ_WRITE);
-    layer_create_buffer (base, &out->loss_mem, 1,
-                         CL_MEM_READ_WRITE);
-
-    g_autofree float *gradient_v = g_new (float, base->size);
-
-    for (int i = 0; i < base->size; i++) {
-        gradient_v[i] = 0;
-    }
-
-    clEnqueueWriteBuffer (base->net->ctx->queue,
-                          base->gradient_mem,
-                          CL_TRUE,
-                          0, sizeof (cl_float),
-                          gradient_v, 0, NULL, NULL);
-    clEnqueueWriteBuffer (base->net->ctx->queue,
-                          out->loss_mem,
-                          CL_TRUE,
-                          0, sizeof (cl_float),
-                          &net->loss, 0, NULL, NULL);
-
     network_push_layer (net, base);
 
     return base;
@@ -124,6 +101,11 @@ compile (struct layer *lay)
     out = (struct output_layer *) lay;
     ctx = lay->net->ctx;
 
+    layer_create_buffer (lay, &out->truth_mem,
+                         lay->size, CL_MEM_READ_ONLY);
+    layer_create_buffer (lay, &out->loss_mem,
+                         1, CL_MEM_WRITE_ONLY);
+
     context_program_clear (ctx);
     context_program_file (ctx, "output-layer.cl");
     context_program_option (ctx, "-DSIZE=%d", lay->size);
@@ -134,8 +116,10 @@ compile (struct layer *lay)
         context_program_option (ctx, "-DCALC_GRADIENT");
     }
 
-    context_program_build (ctx, &lay->program);
+    context_program_build (ctx, &out->program);
     context_program_kernel (ctx, "backprop", &out->backprop_kern);
+
+    lay->flags |= LAYER_FLAG_COMPILED;
 }
 
 static void
@@ -189,4 +173,13 @@ backward (struct layer *lay)
 static void
 release (struct layer *lay)
 {
+    struct output_layer *out;
+
+    g_assert (lay->type == LAYER_OUTPUT);
+    out = (struct output_layer *) lay;
+
+    clReleaseKernel (out->backprop_kern);
+    clReleaseProgram (out->program);
+    clReleaseMemObject (out->truth_mem);
+    clReleaseMemObject (out->loss_mem);
 }

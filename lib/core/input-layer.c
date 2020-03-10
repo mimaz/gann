@@ -23,28 +23,26 @@
 #include "network.h"
 #include "context.h"
 
+static void compile (struct layer *lay);
+static void release (struct layer *lay);
+
 struct layer *
 layer_make_input (struct network *net,
                   int width, int height, int depth)
 {
     struct layer *base;
-    int size;
 
     base = g_new0 (struct layer, 1);
-    size = width * height * depth;
 
     base->net = net;
     base->type = LAYER_INPUT;
     base->width = width;
     base->height = height;
     base->depth = depth;
-    base->size = size;
+    base->size = width * height * depth;
     base->weights = 0;
-
-    layer_create_buffer (base, &base->value_mem,
-                         size, CL_MEM_READ_WRITE);
-    layer_create_buffer (base, &base->gradient_mem,
-                         size, CL_MEM_READ_WRITE);
+    base->compile = compile;
+    base->release = release;
 
     network_push_layer (net, base);
 
@@ -71,4 +69,24 @@ layer_input_set_data (struct layer *lay,
                           buff,
                           0, NULL, NULL);
     clFinish (lay->net->ctx->queue);
+}
+
+static void
+compile (struct layer *lay)
+{
+    layer_create_buffer (lay, &lay->value_mem,
+                         lay->size, CL_MEM_READ_WRITE);
+    layer_create_buffer (lay, &lay->gradient_mem,
+                         lay->size, CL_MEM_READ_WRITE);
+
+    lay->flags |= LAYER_FLAG_COMPILED;
+}
+
+static void
+release (struct layer *lay)
+{
+    g_assert (lay->type == LAYER_INPUT);
+
+    clReleaseMemObject (lay->value_mem);
+    clReleaseMemObject (lay->gradient_mem);
 }
