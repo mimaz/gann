@@ -24,7 +24,7 @@
 #include "context.h"
 
 struct network *
-network_make_empty (struct context *ctx)
+network_create (struct context *ctx)
 {
     struct network *net;
 
@@ -36,6 +36,7 @@ network_make_empty (struct context *ctx)
     net->momentum = 0.99f;
     net->decay = 0.00001f;
 
+    /* manually add itself to the context */
     ctx->netlist = g_slist_prepend (ctx->netlist, net);
 
     return net;
@@ -47,6 +48,7 @@ network_free (struct network *net)
     struct layer *lay;
     int count, i;
 
+    /* manually remove itself from the context */
     net->ctx->netlist = g_slist_remove (net->ctx->netlist, net);
 
     count = network_layer_count (net);
@@ -121,19 +123,5 @@ network_backward (struct network *net)
     for (i = count; i > 0; i--) {
         lay = network_layer (net, i - 1);
         layer_backward (lay);
-    }
-}
-
-void
-network_compile (struct network *net)
-{
-    struct layer *lay;
-    int count, i;
-
-    count = network_layer_count (net);
-
-    for (i = 0; i < count; i++) {
-        lay = network_layer (net, i);
-        layer_compile (lay);
     }
 }

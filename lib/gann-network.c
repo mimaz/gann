@@ -154,7 +154,7 @@ constructed (GObject *gobj)
     GannNetwork *self = GANN_NETWORK (gobj);
     GannNetworkPrivate *p = gann_network_get_instance_private (self);
 
-    p->net = network_make_empty (gann_context_get_core (p->context));
+    p->net = network_create (gann_context_get_core (p->context));
     p->layer_arr = g_ptr_array_new_with_free_func (g_object_unref);
     p->avg_loss = -1;
 

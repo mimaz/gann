@@ -28,20 +28,71 @@ struct context;
 
 struct network
 {
+    /* context pointer */
     struct context *ctx;
+
+    /* array of layer pointers */
     GPtrArray *layers;
+
+    /* lates error loss */
     float loss;
+
+    /* learning parameters */
     float rate;
     float momentum;
     float decay;
 };
 
-struct network *network_make_empty (struct context *ctx);
+/*
+ * network_create
+ * Creates new network instance for given context
+ * ctx: context pointer
+ */
+struct network *network_create (struct context *ctx);
+
+/*
+ * network_free
+ * Frees the network
+ */
 void network_free (struct network *net);
-struct layer *network_layer (struct network *net, int index);
+
+/*
+ * network_layer:
+ * Gives pointer to nth layer
+ * index: index of the layer
+ * returns: pointer to the layer
+ */
+struct layer *network_layer (struct network *net,
+                             int index);
+
+/*
+ * network_layer_last:
+ * returns: pointer to the lastly added layer
+ */
 struct layer *network_layer_last (struct network *net);
+
+/*
+ * network_layer_count:
+ * returns: number of added layers
+ */
 int network_layer_count (struct network *net);
+
+/*
+ * network_push_layer:
+ * Adds layer to the layer list. After call the layer is
+ * owned by the network.
+ * lay: pointer to the layer
+ */
 void network_push_layer (struct network *net, struct layer *lay);
+
+/*
+ * network_forward:
+ * Propagates network forward
+ */
 void network_forward (struct network *net);
+
+/*
+ * network_backward:
+ * Backpropagates error
+ */
 void network_backward (struct network *net);
-void network_compile (struct network *net);

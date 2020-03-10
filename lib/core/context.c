@@ -47,7 +47,7 @@ context_create ()
     ctx->netlist = NULL;
     ctx->codetable = g_hash_table_new_full (g_str_hash,
                                             g_str_equal,
-                                            g_free,
+                                            NULL,
                                             (GDestroyNotify)
                                             g_bytes_unref);
     ctx->resource = cl_code_get_resource ();
@@ -80,12 +80,23 @@ context_create ()
     return ctx;
 }
 
+static void
+release_network (gpointer data, gpointer user_data)
+{
+    (void) user_data;
+    network_free (data);
+}
+
 void
 context_free (struct context *ctx)
 {
-    context_program_clear (ctx);
+    GSList *nets;
 
-    g_slist_free_full (ctx->netlist, (GDestroyNotify) network_free);
+    nets = g_slist_copy (ctx->netlist);
+
+    g_slist_foreach (nets, release_network, NULL);
+    g_slist_free (nets);
+    g_assert_null (ctx->netlist);
     g_hash_table_unref (ctx->codetable);
     g_hash_table_unref (ctx->activationtable);
 
@@ -99,6 +110,7 @@ context_free (struct context *ctx)
     }
 
     g_clear_pointer (&ctx->sources, g_ptr_array_unref);
+    context_program_clear (ctx);
 
     /* No need to release ctx->built_program, it's weak handle */
 
@@ -121,9 +133,10 @@ context_read_cl_code (struct context *ctx,
                                         G_RESOURCE_FLAGS_NONE,
                                         NULL);
         g_assert (bytes != NULL);
-        g_hash_table_insert (ctx->codetable,
-                             g_strdup (name),
-                             bytes);
+        g_free (path);
+
+        /* bytes is now owned by the codetable */
+        g_hash_table_insert (ctx->codetable, (gpointer) name, bytes);
     }
 
     return g_bytes_get_data (bytes, NULL);
