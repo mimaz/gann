@@ -94,7 +94,7 @@ layer_clear_gradient (struct layer *lay)
         zero = 0;
         context_fill_pattern (lay->net->ctx,
                               lay->gradient_mem,
-                              lay->size * sizeof (cl_float),
+                              0, lay->size * sizeof (cl_float),
                               &zero,
                               sizeof (cl_float),
                               0, NULL, NULL);

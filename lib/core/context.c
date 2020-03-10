@@ -50,17 +50,14 @@ context_create ()
                                             g_free,
                                             (GDestroyNotify)
                                             g_bytes_unref);
-    ctx->programlist = NULL;
     ctx->resource = cl_code_get_resource ();
-    ctx->activationtable = g_hash_table_new_full (g_str_hash,
-                                                  g_str_equal,
-                                                  g_free,
-                                                  g_free);
+    ctx->activationtable = g_hash_table_new (g_str_hash,
+                                             g_str_equal);
 
     err = clGetPlatformIDs (1, &plat_id, NULL);
     g_assert (err == 0);
 
-    err = clGetDeviceIDs (plat_id, CL_DEVICE_TYPE_GPU, 1, &ctx->device, NULL);
+    err = clGetDeviceIDs (plat_id, CL_DEVICE_TYPE_CPU, 1, &ctx->device, NULL);
     g_assert (err == 0);
 
     ctx->context = clCreateContext (0, 1, &ctx->device, NULL, NULL, &err);
@@ -69,7 +66,7 @@ context_create ()
     ctx->queue = clCreateCommandQueue (ctx->context, ctx->device, 0, &err);
     g_assert (err == 0);
 
-    ctx->group_size = 256;
+    ctx->group_size = 32;
 
     context_program_clear (ctx);
     context_program_file (ctx, "fill-pattern.cl");
@@ -83,32 +80,28 @@ context_create ()
     return ctx;
 }
 
-static void
-release_network (gpointer net)
-{
-    network_free (net);
-}
-
-static void
-release_program (gpointer prog)
-{
-    clReleaseProgram ((cl_program) prog);
-}
-
 void
 context_free (struct context *ctx)
 {
     context_program_clear (ctx);
 
-    g_slist_free_full (ctx->netlist, release_network);
-    g_slist_free_full (ctx->programlist, release_program);
-
+    g_slist_free_full (ctx->netlist, (GDestroyNotify) network_free);
+    g_hash_table_unref (ctx->codetable);
     g_hash_table_unref (ctx->activationtable);
 
     clReleaseCommandQueue (ctx->queue);
     clReleaseContext (ctx->context);
 
-    g_hash_table_unref (ctx->codetable);
+    /* TODO do we need to release ctx->device? */
+
+    if (ctx->options != NULL) {
+        g_string_free (ctx->options, TRUE);
+    }
+
+    g_clear_pointer (&ctx->sources, g_ptr_array_unref);
+
+    /* No need to release ctx->built_program, it's weak handle */
+
     g_free (ctx);
 }
 
@@ -142,8 +135,8 @@ context_add_activation (struct context *ctx,
                         const char *code)
 {
     g_hash_table_insert (ctx->activationtable,
-                         g_strdup (name),
-                         g_strdup (code));
+                         (gpointer) name,
+                         (gpointer) code);
 }
 
 void
@@ -241,8 +234,6 @@ context_program_build (struct context *ctx,
         g_free (log);
     }
 
-    ctx->programlist = g_slist_prepend (ctx->programlist, prog);
-
     context_program_clear (ctx);
 
     ctx->built_program = prog;
@@ -266,6 +257,7 @@ context_program_kernel (struct context *ctx,
 void
 context_fill_pattern (struct context *ctx,
                       cl_mem mem,
+                      cl_int memoff,
                       cl_int memsize,
                       const void *data,
                       cl_int datasize,
@@ -273,6 +265,7 @@ context_fill_pattern (struct context *ctx,
                       const cl_event *evlist,
                       cl_event *ev)
 {
+#if CL_TARGET_OPENCL_VERSION < 120
     cl_int err;
     cl_event wrev;
     cl_kernel kern;
@@ -303,8 +296,7 @@ context_fill_pattern (struct context *ctx,
 
         clEnqueueWriteBuffer (ctx->queue,
                               ctx->pattern_mem,
-                              /* CL_FALSE, */
-                              CL_TRUE,
+                              CL_FALSE,
                               0, datasize,
                               ctx->pattern_cache,
                               0, NULL, &wrev);
@@ -325,6 +317,13 @@ context_fill_pattern (struct context *ctx,
     clSetKernelArg (kern, 3, sizeof (cl_int), &count);
 
     context_run_sparse (ctx, kern, count, wrev != 0, &wrev, ev);
+#else
+    clEnqueueFillBuffer (ctx->queue,
+                         mem,
+                         datasize, data,
+                         memoff, memsize,
+                         evnum, evlist, ev);
+#endif
 }
 
 void
