@@ -54,15 +54,9 @@ struct context
     GPtrArray *sources;
     cl_program built_program;
 
-#if CL_TARGET_OPENCL_VERSION < 120
-    /* Pattern data */
-    cl_program pattern_program;
-    cl_kernel pattern_kernel;
-    cl_mem pattern_mem;
-    int pattern_size;
-    int pattern_capacity;
-    void *pattern_cache;
-#endif
+    /* Clear buffer program */
+    cl_program clear_program;
+    cl_kernel clear_kernel;
 };
 
 /*
@@ -159,25 +153,15 @@ void context_program_kernel (struct context *ctx,
                              cl_kernel *handle);
 
 /*
- * context_fill_pattern
- * Fills buffer with a pattern. It's workaround for
- * missing clEnqueueFillBuffer in OpenCL 1.0
- * mem: target buffer
- * memsize: fill size
- * data: pattern pointer
- * datasize: pattern size
- * evnum: number of events to the queue
- * evlist: event list to the queue
- * ev: handle to fill task event
+ * context_clear_buffer:
+ * Clears buffer with float values
+ * mem: buffer handle
+ * size: number of float values in buffer
+ * ev: pointer to event handle
  */
-void context_fill_pattern (struct context *ctx,
+void context_clear_buffer (struct context *ctx,
                            cl_mem mem,
-                           cl_int memoff,
-                           cl_int memsize,
-                           const void *data,
-                           cl_int datasize,
-                           cl_int evnum,
-                           const cl_event *evlist,
+                           cl_int size,
                            cl_event *ev);
 
 /*

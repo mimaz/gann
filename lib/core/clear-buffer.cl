@@ -19,16 +19,14 @@
  * along with Gann.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-__kernel void clear (__global const unsigned char *pattern,
-                     __global unsigned char *data,
-                     const int size,
-                     const int count)
+__kernel void clear (__global float *data,
+                     const int total)
 {
-    __private int index, i;
+    __private int id;
 
-    index = get_global_id (0);
+    id = get_global_id (0);
 
-    for (i = 0; i < size; i++) {
-        data[index * size + i] = pattern[i];
+    if (id < total) {
+        data[id] = 0;
     }
 }

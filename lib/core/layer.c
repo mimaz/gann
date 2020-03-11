@@ -82,16 +82,8 @@ layer_load_value (struct layer *lay,
 void
 layer_clear_gradient (struct layer *lay)
 {
-    cl_float zero;
-
     if (lay->gradient_mem != 0) {
-        zero = 0;
-        context_fill_pattern (lay->net->ctx,
-                              lay->gradient_mem,
-                              0, lay->size * sizeof (cl_float),
-                              &zero,
-                              sizeof (cl_float),
-                              0, NULL, NULL);
+        context_clear_buffer (lay->net->ctx, lay->gradient_mem, lay->size, NULL);
     }
 }
 

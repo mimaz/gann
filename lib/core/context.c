@@ -69,9 +69,9 @@ context_create ()
     ctx->group_size = 32;
 
     context_program_clear (ctx);
-    context_program_file (ctx, "fill-pattern.cl");
-    context_program_build (ctx, &ctx->pattern_program);
-    context_program_kernel (ctx, "clear", &ctx->pattern_kernel);
+    context_program_file (ctx, "clear-buffer.cl");
+    context_program_build (ctx, &ctx->clear_program);
+    context_program_kernel (ctx, "clear", &ctx->clear_kernel);
 
     add_activation_from_source (ctx, "sigmoid", "sigmoid.cl");
     add_activation_from_source (ctx, "softplus", "softplus.cl");
@@ -268,75 +268,15 @@ context_program_kernel (struct context *ctx,
 }
 
 void
-context_fill_pattern (struct context *ctx,
+context_clear_buffer (struct context *ctx,
                       cl_mem mem,
-                      cl_int memoff,
-                      cl_int memsize,
-                      const void *data,
-                      cl_int datasize,
-                      cl_int evnum,
-                      const cl_event *evlist,
+                      cl_int size,
                       cl_event *ev)
 {
-#if CL_TARGET_OPENCL_VERSION < 120
-    cl_int err;
-    cl_event wrev;
-    cl_kernel kern;
-    cl_int count;
-
-    if (ctx->pattern_mem == 0 || datasize > ctx->pattern_capacity) {
-        g_clear_pointer (&ctx->pattern_cache, g_free);
-        ctx->pattern_cache = g_malloc (datasize);
-
-        if (ctx->pattern_mem != 0) {
-            clReleaseMemObject (ctx->pattern_mem);
-        }
-
-        ctx->pattern_mem = clCreateBuffer (ctx->context,
-                                           CL_MEM_READ_WRITE,
-                                           datasize,
-                                           NULL, &err);
-        ctx->pattern_capacity = datasize;
-        g_assert (err == CL_SUCCESS);
-    }
-
-    g_assert (ctx->pattern_cache != NULL);
-
-    memcpy (ctx->pattern_cache, data, datasize);
-
-    if (datasize != ctx->pattern_size ||
-        memcmp (data, ctx->pattern_cache, datasize) != 0) {
-
-        clEnqueueWriteBuffer (ctx->queue,
-                              ctx->pattern_mem,
-                              CL_FALSE,
-                              0, datasize,
-                              ctx->pattern_cache,
-                              0, NULL, &wrev);
-    } else {
-        wrev = 0;
-    }
-
-    if (memsize % datasize != 0) {
-        g_error ("data size is not aligned to pattern size");
-    }
-
-    kern = ctx->pattern_kernel;
-    count = memsize / datasize;
-
-    clSetKernelArg (kern, 0, sizeof (cl_mem), &ctx->pattern_mem);
-    clSetKernelArg (kern, 1, sizeof (cl_mem), &mem);
-    clSetKernelArg (kern, 2, sizeof (cl_int), &datasize);
-    clSetKernelArg (kern, 3, sizeof (cl_int), &count);
-
-    context_run_sparse (ctx, kern, count, wrev != 0, &wrev, ev);
-#else
-    clEnqueueFillBuffer (ctx->queue,
-                         mem,
-                         datasize, data,
-                         memoff, memsize,
-                         evnum, evlist, ev);
-#endif
+    clSetKernelArg (ctx->clear_kernel, 0, sizeof (cl_mem), &mem);
+    clSetKernelArg (ctx->clear_kernel, 1, sizeof (cl_int), &size);
+    context_run_sparse (ctx, ctx->clear_kernel, size,
+                        0, NULL, ev);
 }
 
 void

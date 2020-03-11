@@ -83,7 +83,6 @@ compile (struct layer *lay)
     struct context *ctx;
     g_autofree float *weight_v;
     int i;
-    cl_float zero;
 
     g_assert (lay->type == LAYER_DENSE);
     g_assert ((lay->flags & LAYER_FLAG_COMPILED) == 0);
@@ -125,19 +124,9 @@ compile (struct layer *lay)
                           weight_v,
                           0, NULL, NULL);
 
-    zero = 0;
-    context_fill_pattern (ctx, lay->bias_mem, 0,
-                          lay->size * sizeof (cl_float),
-                          &zero, sizeof (zero),
-                          0, NULL, NULL);
-    context_fill_pattern (ctx, lay->bias_delta_mem, 0,
-                          lay->size * sizeof (cl_float),
-                          &zero, sizeof (zero),
-                          0, NULL, NULL);
-    context_fill_pattern (ctx, lay->delta_mem, 0,
-                          lay->weights * sizeof (cl_float),
-                          &zero, sizeof (zero),
-                          0, NULL, NULL);
+    context_clear_buffer (ctx, lay->bias_mem, lay->size, NULL);
+    context_clear_buffer (ctx, lay->bias_delta_mem, lay->size, NULL);
+    context_clear_buffer (ctx, lay->delta_mem, lay->weights, NULL);
 
     context_program_clear (ctx);
     context_program_activation (ctx, lay->activation);
