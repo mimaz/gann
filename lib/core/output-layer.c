@@ -83,10 +83,7 @@ layer_output_set_truth (struct layer *lay,
 
     out = (struct output_layer *) lay;
 
-    if (out->truth_event != 0) {
-        clReleaseEvent (out->truth_event);
-        out->truth_event = 0;
-    }
+    g_clear_pointer (&out->truth_event, clReleaseEvent);
 
     clEnqueueWriteBuffer (lay->net->ctx->queue,
                           out->truth_mem,
@@ -94,7 +91,6 @@ layer_output_set_truth (struct layer *lay,
                           0, size * sizeof (cl_float),
                           data, 0, NULL,
                           &out->truth_event);
-    clFinish (lay->net->ctx->queue);
 }
 
 static void
@@ -132,8 +128,10 @@ forward (struct layer *lay)
 {
     g_assert (lay->type == LAYER_OUTPUT);
     g_assert (lay->size == lay->prev->size);
+    g_assert (lay->prev != NULL);
 
     lay->value_mem = lay->prev->value_mem;
+    lay->forward_barrier = lay->prev->forward_barrier;
 }
 
 static void
@@ -141,8 +139,9 @@ backward (struct layer *lay)
 {
     struct output_layer *out;
     size_t globsiz, locsiz;
+    cl_event evlist[2];
     cl_kernel kern;
-    cl_int err;
+    cl_int err, evcount;
 
     g_assert (lay->type == LAYER_OUTPUT);
     g_assert (lay->size == lay->prev->size);
@@ -150,29 +149,40 @@ backward (struct layer *lay)
     out = (struct output_layer *) lay;
     kern = out->backprop_kern;
 
+    evcount = 0;
+
+    if (out->truth_event != NULL) {
+        evlist[evcount++] = out->truth_event;
+    }
+
+    if (lay->forward_barrier != NULL) {
+        evlist[evcount++] = lay->forward_barrier;
+    }
+
     clSetKernelArg (kern, 0, sizeof (cl_mem), &out->truth_mem);
     clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->value_mem);
     clSetKernelArg (kern, 2, sizeof (cl_mem), &lay->prev->gradient_mem);
     clSetKernelArg (kern, 3, sizeof (cl_mem), &out->loss_mem);
 
+    g_clear_pointer (&lay->backward_barrier, clReleaseEvent);
+
     locsiz = lay->size;
     globsiz = locsiz;
-    clFinish (lay->net->ctx->queue);
     err = clEnqueueNDRangeKernel (lay->net->ctx->queue,
                                   kern, 1, NULL,
                                   &globsiz, &locsiz,
-                                  1, &out->truth_event,
-                                  NULL);
+                                  evcount, evlist,
+                                  &lay->backward_barrier);
     g_assert (err == CL_SUCCESS);
-    clFinish (lay->net->ctx->queue);
 
-    clFinish (lay->net->ctx->queue);
     clEnqueueReadBuffer (lay->net->ctx->queue,
                          out->loss_mem,
                          CL_TRUE,
                          0, sizeof (cl_float),
                          &out->loss,
-                         0, NULL, NULL);
+                         evcount, evlist, NULL);
+
+    /* TODO synchronize loss reading without blocking here */
     clFinish (lay->net->ctx->queue);
     lay->net->loss = out->loss;
 }
@@ -184,6 +194,9 @@ release (struct layer *lay)
 
     g_assert (lay->type == LAYER_OUTPUT);
     out = (struct output_layer *) lay;
+
+    g_clear_pointer (&lay->backward_barrier, clReleaseEvent);
+    g_clear_pointer (&out->truth_event, clReleaseEvent);
 
     clReleaseKernel (out->backprop_kern);
     clReleaseProgram (out->program);
