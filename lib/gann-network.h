@@ -31,6 +31,7 @@ typedef struct _GannLayer GannLayer;
 typedef struct _GannInputLayer GannInputLayer;
 typedef struct _GannOutputLayer GannOutputLayer;
 typedef struct _GannDenseLayer GannDenseLayer;
+typedef struct _GannConvLayer GannConvLayer;
 
 #define GANN_TYPE_NETWORK (gann_network_get_type ())
 
@@ -57,6 +58,11 @@ GannDenseLayer *gann_network_create_dense (GannNetwork *self,
                                            gint height,
                                            gint depth,
                                            const gchar *activation);
+GannConvLayer *gann_network_create_conv (GannNetwork *self,
+                                         gint size,
+                                         gint stride,
+                                         gint filters,
+                                         const gchar *activation);
 void gann_network_forward (GannNetwork *self);
 void gann_network_backward (GannNetwork *self);
 GannLayer *gann_network_get_layer (GannNetwork *self,

@@ -48,6 +48,11 @@ GannLayer *gann_layer_new_dense (GannNetwork *network,
                                  gint height,
                                  gint depth,
                                  const gchar *activation);
+GannLayer *gann_layer_new_conv (GannNetwork *network,
+                                gint size,
+                                gint stride,
+                                gint filters,
+                                const gchar *activation);
 
 const gfloat *gann_layer_get_data (GannLayer *self,
                                    gsize *size);

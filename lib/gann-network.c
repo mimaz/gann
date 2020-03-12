@@ -25,6 +25,7 @@
 #include "gann-input-layer.h"
 #include "gann-output-layer.h"
 #include "gann-dense-layer.h"
+#include "gann-conv-layer.h"
 #include "gann-context.h"
 
 #include "core/core.h"
@@ -301,6 +302,21 @@ gann_network_create_dense (GannNetwork *self,
     insert_layer (self, layer);
 
     return GANN_DENSE_LAYER (layer);
+}
+
+GannConvLayer *
+gann_network_create_conv (GannNetwork *self,
+                          gint size,
+                          gint stride,
+                          gint filters,
+                          const gchar *activation)
+{
+    GannLayer *layer;
+
+    layer = gann_layer_new_conv (self, size, stride, filters, activation);
+    insert_layer (self, layer);
+
+    return GANN_CONV_LAYER (layer);
 }
 
 void

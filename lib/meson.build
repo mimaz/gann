@@ -3,18 +3,21 @@ subdir('core/')
 source = [
     'gann-network.c',
     'gann-layer.c',
+    'gann-context.c',
     'gann-input-layer.c',
     'gann-output-layer.c',
     'gann-dense-layer.c',
-    'gann-context.c',
+    'gann-conv-layer.c',
 ]
 
 public_header = [
     'gann-network.h',
     'gann-layer.h',
+    'gann-context.h',
     'gann-input-layer.h',
     'gann-output-layer.h',
     'gann-dense-layer.h',
+    'gann-conv-layer.c',
 ]
 
 dependencies = [

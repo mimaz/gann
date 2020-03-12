@@ -44,23 +44,15 @@ main (gint argc, gchar **argv)
     /*
      * Create input layer with shape 1x1x2
      */
-    in = gann_network_create_input (net, 1, 1, 2);
+    in = gann_network_create_input (net, 32, 32, 1);
 
     /*
      * Create some hidden layers
      * The network is way over complex for such simple learning data set
      * But here it's just for the example purpose
      */
-    gann_network_create_dense (net, 1, 1, 4096, "sigmoid");
-    gann_network_create_dense (net, 1, 1, 4096, "softplus");
-    gann_network_create_dense (net, 1, 1, 4096, "leaky");
-    gann_network_create_dense (net, 1, 1, 4096, "softplus");
-    gann_network_create_dense (net, 1, 1, 4096, "leaky");
-    gann_network_create_dense (net, 1, 1, 4096, "softplus");
-    gann_network_create_dense (net, 1, 1, 4096, "leaky");
-    gann_network_create_dense (net, 1, 1, 4096, "softplus");
-    gann_network_create_dense (net, 1, 1, 4096, "leaky");
-    gann_network_create_dense (net, 1, 1, 1, "linear");
+    gann_network_create_conv (net, 3, 1, 1, "leaky");
+    gann_network_create_dense (net, 1, 1, 1, "leaky");
 
     /*
      * Create output layer
