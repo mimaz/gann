@@ -23,6 +23,8 @@
 #include "network.h"
 #include "context.h"
 
+static void forward (struct layer *lay);
+static void backward (struct layer *lay);
 static void compile (struct layer *lay);
 static void release (struct layer *lay);
 
@@ -41,6 +43,8 @@ layer_make_input (struct network *net,
     base->depth = depth;
     base->size = width * height * depth;
     base->weights = 0;
+    base->forward = forward;
+    base->backward = backward;
     base->compile = compile;
     base->release = release;
 
@@ -69,6 +73,18 @@ layer_input_set_data (struct layer *lay,
                           buff,
                           0, NULL, NULL);
     clFinish (lay->net->ctx->queue);
+}
+
+static void
+forward (struct layer *lay)
+{
+    lay->evcount = 0;
+}
+
+static void
+backward (struct layer *lay)
+{
+    lay->evcount = 0;
 }
 
 static void
