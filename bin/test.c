@@ -39,7 +39,7 @@ main (gint argc, gchar **argv)
     /*
      * Create network with given learning rate, momentum and weight decay
      */
-    net = gann_network_new_full (context, 0.5f, 0.95f, 0.999995f);
+    net = gann_network_new_full (context, 0.8f, 0.99f, 0.999995f);
 
     /*
      * Create input layer with shape 1x1x2
@@ -51,13 +51,9 @@ main (gint argc, gchar **argv)
      * The network is way over complex for such simple learning data set
      * But here it's just for the example purpose
      */
-    gann_network_create_dense (net, 1, 1, 10, "relu");
-    gann_network_create_dense (net, 1, 1, 100, "sigmoid");
-    gann_network_create_dense (net, 1, 1, 200, "softplus");
-    gann_network_create_dense (net, 1, 1, 200, "relu");
-    gann_network_create_dense (net, 1, 1, 200, "sigmoid");
-    gann_network_create_dense (net, 1, 1, 10, "softplus");
-    gann_network_create_dense (net, 1, 1, 1, "sigmoid");
+    gann_network_create_dense (net, 1, 1, 8, "leaky");
+    gann_network_create_dense (net, 1, 1, 8, "leaky");
+    gann_network_create_dense (net, 1, 1, 1, "softplus");
 
     /*
      * Create output layer
@@ -65,7 +61,7 @@ main (gint argc, gchar **argv)
      */
     out = gann_network_create_output (net);
 
-    for (i = 0; i < 100000; i++) {
+    for (i = 0; i < 10000; i++) {
         /*
          * Randomize two bits and make simple operation, in this case XOR
          */

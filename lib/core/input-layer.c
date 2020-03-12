@@ -78,13 +78,11 @@ layer_input_set_data (struct layer *lay,
 static void
 forward (struct layer *lay)
 {
-    lay->evcount = 0;
 }
 
 static void
 backward (struct layer *lay)
 {
-    lay->evcount = 0;
 }
 
 static void
