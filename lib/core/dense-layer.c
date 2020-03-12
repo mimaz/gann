@@ -175,12 +175,15 @@ forward (struct layer *lay)
         clSetKernelArg (kern, 4, sizeof (cl_mem), &lay->derivative_mem);
     }
 
+    g_clear_pointer (&lay->forward_barrier, clReleaseEvent);
+
     err = clEnqueueNDRangeKernel (lay->net->ctx->queue,
                                   kern, 1, NULL,
                                   &globsiz, &locsiz,
-                                  0, NULL, NULL);
+                                  UTIL_NONNULL (lay->prev->forward_barrier),
+                                  UTIL_PTR_OR_NULL (lay->prev->forward_barrier),
+                                  &lay->forward_barrier);
     g_assert (err == CL_SUCCESS);
-    clFinish (lay->net->ctx->queue);
 }
 
 static void
@@ -259,6 +262,9 @@ release (struct layer *lay)
 
     g_assert (lay->type == LAYER_DENSE);
     dense = (struct dense_layer *) lay;
+
+    g_clear_pointer (&lay->forward_barrier, clReleaseEvent);
+    g_clear_pointer (&lay->backward_barrier, clReleaseEvent);
 
     clReleaseKernel (dense->forward);
     clReleaseKernel (dense->derive_gradient);

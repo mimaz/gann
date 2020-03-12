@@ -21,5 +21,8 @@
 
 #pragma once
 
+#define UTIL_NONNULL(r) ((r) != NULL)
+#define UTIL_PTR_OR_NULL(r) (((r) != NULL) ? &(r) : NULL)
+
 int util_upper_power_2 (int v);
 int util_upper_multiply (int v, int g);

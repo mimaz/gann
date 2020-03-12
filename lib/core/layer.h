@@ -81,6 +81,12 @@ struct layer
     cl_mem delta_mem;
 
     /*
+     * barrier events
+     */
+    cl_event forward_barrier;
+    cl_event backward_barrier;
+
+    /*
      * 3D size
      */
     int width;

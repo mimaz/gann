@@ -83,6 +83,11 @@ layer_output_set_truth (struct layer *lay,
 
     out = (struct output_layer *) lay;
 
+    if (out->truth_event != 0) {
+        clReleaseEvent (out->truth_event);
+        out->truth_event = 0;
+    }
+
     clEnqueueWriteBuffer (lay->net->ctx->queue,
                           out->truth_mem,
                           CL_TRUE,
@@ -152,6 +157,7 @@ backward (struct layer *lay)
 
     locsiz = lay->size;
     globsiz = locsiz;
+    clFinish (lay->net->ctx->queue);
     err = clEnqueueNDRangeKernel (lay->net->ctx->queue,
                                   kern, 1, NULL,
                                   &globsiz, &locsiz,
@@ -165,7 +171,8 @@ backward (struct layer *lay)
                          out->loss_mem,
                          CL_TRUE,
                          0, sizeof (cl_float),
-                         &out->loss, 0, NULL, NULL);
+                         &out->loss,
+                         0, NULL, NULL);
     clFinish (lay->net->ctx->queue);
     lay->net->loss = out->loss;
 }
