@@ -44,9 +44,10 @@ struct layer
     struct network *net;
 
     /*
-     * previous layer pointer
+     * previous and next layer pointers
      */
     struct layer *prev;
+    struct layer *next;
 
     /*
      * layer type

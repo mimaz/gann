@@ -58,6 +58,8 @@ layer_make_dense (struct network *net,
         prev = network_layer_last (net);
     }
 
+    prev->next = base;
+
     base->net = net;
     base->prev = prev;
     base->type = LAYER_DENSE;
@@ -92,6 +94,10 @@ compile (struct layer *lay)
 
     lay->weights = lay->prev->size * lay->size;
 
+
+    /*
+     * Build buffers
+     */
     layer_create_buffer (lay, &lay->value_mem,
                          lay->size, CL_MEM_READ_WRITE);
     layer_create_buffer (lay, &lay->derivative_mem,
@@ -107,6 +113,10 @@ compile (struct layer *lay)
     layer_create_buffer (lay, &lay->delta_mem,
                          lay->weights, CL_MEM_READ_WRITE);
 
+
+    /*
+     * Randomize weights
+     */
     weight_v = g_new (float, lay->weights);
 
     for (i = 0; i < lay->weights; i++) {
@@ -124,10 +134,18 @@ compile (struct layer *lay)
                           weight_v,
                           0, NULL, NULL);
 
+
+    /*
+     * Clear buffers
+     */
     context_clear_buffer (ctx, lay->bias_mem, lay->size, NULL);
     context_clear_buffer (ctx, lay->bias_delta_mem, lay->size, NULL);
     context_clear_buffer (ctx, lay->delta_mem, lay->weights, NULL);
 
+
+    /*
+     * Build program
+     */
     context_program_clear (ctx);
     context_program_activation (ctx, lay->activation);
     context_program_option (ctx, "-DINPUTS=%d", lay->prev->size);
@@ -148,6 +166,9 @@ compile (struct layer *lay)
     context_program_kernel (ctx, "backward", &dense->backward);
     context_program_kernel (ctx, "backward_bias", &dense->backward_bias);
 
+    /*
+     * Mark layer compiled
+     */
     lay->flags |= LAYER_FLAG_COMPILED;
 }
 
@@ -192,13 +213,26 @@ backward (struct layer *lay)
     struct dense_layer *dense;
     size_t globsiz, locsiz;
     float ratefactor;
+    cl_event evderive, evbackprop, evbias, evlist[2];
     cl_kernel kern;
-    cl_int err;
+    cl_int err, evcount;
+
 
     g_assert (lay->type == LAYER_DENSE);
+    g_assert (lay->gradient_mem != 0);
+
+
+    evderive = NULL;
+    evbackprop = NULL;
+    evbias = NULL;
+
     ratefactor = lay->net->rate * (1 - lay->net->momentum);
     dense = (struct dense_layer *) lay;
 
+
+    /*
+     * Apply derivative to current layer's gradients
+     */
     locsiz = MIN (lay->size, lay->net->ctx->group_size);
     globsiz = ceilf ((float) lay->prev->size / locsiz) * locsiz;
     kern = dense->derive_gradient;
@@ -209,9 +243,29 @@ backward (struct layer *lay)
     err = clEnqueueNDRangeKernel (lay->net->ctx->queue,
                                   kern, 1, NULL,
                                   &globsiz, &locsiz,
-                                  0, NULL, NULL);
+                                  0, NULL,
+                                  &evderive);
     g_assert (err == CL_SUCCESS);
 
+
+
+    /*
+     * Create pending events list for weights backpropagation and
+     * bias update tasks as they depend on derivative application
+     * and next layer's barrier
+     */
+    evcount = 0;
+    evlist[evcount++] = evderive;
+
+    if (lay->next->backward_barrier != NULL) {
+        evlist[evcount++] = lay->next->backward_barrier;
+    }
+
+
+
+    /*
+     * Run weights backpropagation
+     */
     locsiz = lay->net->ctx->group_size;
     globsiz = ceilf ((float) lay->prev->size / locsiz) * locsiz;
     kern = dense->backward;
@@ -225,18 +279,18 @@ backward (struct layer *lay)
     clSetKernelArg (kern, 6, sizeof (cl_float), &lay->net->momentum);
     clSetKernelArg (kern, 7, sizeof (cl_float), &lay->net->decay);
 
-    clFinish (lay->net->ctx->queue);
     err = clEnqueueNDRangeKernel (lay->net->ctx->queue,
                                   kern, 1, NULL,
                                   &globsiz, &locsiz,
-                                  0, NULL, NULL);
-    clFinish (lay->net->ctx->queue);
+                                  evcount, evlist,
+                                  &evbackprop);
     g_assert (err == CL_SUCCESS);
 
-    g_autofree float *buff = g_new (float, lay->size);
-    clFinish (lay->net->ctx->queue);
-    g_assert (lay->gradient_mem != 0);
 
+
+    /*
+     * Run bias update
+     */
     globsiz = ceilf ((float) lay->size / locsiz) * locsiz;
     kern = dense->backward_bias;
 
@@ -250,9 +304,35 @@ backward (struct layer *lay)
     err = clEnqueueNDRangeKernel (lay->net->ctx->queue,
                                   kern, 1, NULL,
                                   &globsiz, &locsiz,
-                                  0, NULL, NULL);
+                                  evcount, evlist,
+                                  &evbias);
     g_assert (err == CL_SUCCESS);
-    clFinish (lay->net->ctx->queue);
+
+
+
+    /*
+     * Release derive event already owned by both backpropagation tasks
+     */
+    clReleaseEvent (evderive);
+
+
+    /*
+     * Merge backpropagation events into one barrier
+     */
+    evlist[0] = evbackprop;
+    evlist[1] = evbias;
+    evcount = 2;
+
+    g_clear_pointer (&lay->backward_barrier, clReleaseEvent);
+    clEnqueueBarrierWithWaitList (lay->net->ctx->queue,
+                                  evcount, evlist,
+                                  &lay->backward_barrier);
+
+    /*
+     * And release backpropagation events already owned by the barrier
+     */
+    clReleaseEvent (evbackprop);
+    clReleaseEvent (evbias);
 }
 
 static void

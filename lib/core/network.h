@@ -64,7 +64,9 @@ void network_free (struct network *net);
 /*
  * network_layer:
  * Gives pointer to nth layer
- * index: index of the layer
+ * index: index of the layer, nay be negative value to index
+ *        from end where -1 is the last layer, -2 is the one
+ *        before the last and so.
  * returns: pointer to the layer
  */
 struct layer *network_layer (struct network *net,

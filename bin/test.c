@@ -112,7 +112,7 @@ main (gint argc, gchar **argv)
         /*
          * Break if the error is small enough
          */
-        if (loss < 0.1f && i > 10 || loss != loss) {
+        if ((loss < 0.1f && i > 10) || (loss != loss)) {
             break;
         }
     }

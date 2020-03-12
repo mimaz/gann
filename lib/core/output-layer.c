@@ -29,6 +29,7 @@ struct output_layer
     cl_mem truth_mem;
     cl_mem loss_mem;
     cl_event truth_event;
+    cl_event loss_event;
     cl_program program;
     cl_kernel backprop_kern;
     float loss;
@@ -52,6 +53,8 @@ layer_make_output (struct network *net)
     size = prev->width * prev->height * prev->depth;
 
     g_assert (size == prev->size);
+
+    prev->next = base;
 
     base->net = net;
     base->prev = prev;
@@ -102,11 +105,17 @@ compile (struct layer *lay)
     out = (struct output_layer *) lay;
     ctx = lay->net->ctx;
 
+    /*
+     * Create buffers
+     */
     layer_create_buffer (lay, &out->truth_mem,
                          lay->size, CL_MEM_READ_ONLY);
     layer_create_buffer (lay, &out->loss_mem,
                          1, CL_MEM_WRITE_ONLY);
 
+    /*
+     * Build program
+     */
     context_program_clear (ctx);
     context_program_file (ctx, "output-layer.cl");
     context_program_option (ctx, "-DSIZE=%d", lay->size);
@@ -120,6 +129,9 @@ compile (struct layer *lay)
     context_program_build (ctx, &out->program);
     context_program_kernel (ctx, "backprop", &out->backprop_kern);
 
+    /*
+     * Mark compiled
+     */
     lay->flags |= LAYER_FLAG_COMPILED;
 }
 
@@ -131,7 +143,22 @@ forward (struct layer *lay)
     g_assert (lay->prev != NULL);
 
     lay->value_mem = lay->prev->value_mem;
-    lay->forward_barrier = lay->prev->forward_barrier;
+}
+
+CL_CALLBACK static void
+on_loss_read_complete (cl_event event, cl_int status, void *user_data)
+{
+    struct layer *lay;
+    struct output_layer *out;
+
+    lay = user_data;
+
+    g_assert (lay != NULL);
+    g_assert (lay->type == LAYER_OUTPUT);
+
+    out = (struct output_layer *) lay;
+
+    lay->net->loss += out->loss;
 }
 
 static void
@@ -149,16 +176,25 @@ backward (struct layer *lay)
     out = (struct output_layer *) lay;
     kern = out->backprop_kern;
 
+    /*
+     * Make event dependencies list for backpropgation
+     * It depends on truth setting and previous layer's
+     * forward barrier
+     */
     evcount = 0;
 
     if (out->truth_event != NULL) {
         evlist[evcount++] = out->truth_event;
     }
 
-    if (lay->forward_barrier != NULL) {
-        evlist[evcount++] = lay->forward_barrier;
+    if (lay->prev->forward_barrier != NULL) {
+        evlist[evcount++] = lay->prev->forward_barrier;
     }
 
+
+    /*
+     * Run backpropagation
+     */
     clSetKernelArg (kern, 0, sizeof (cl_mem), &out->truth_mem);
     clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->value_mem);
     clSetKernelArg (kern, 2, sizeof (cl_mem), &lay->prev->gradient_mem);
@@ -175,16 +211,21 @@ backward (struct layer *lay)
                                   &lay->backward_barrier);
     g_assert (err == CL_SUCCESS);
 
+
+    /*
+     * Enqueue loss reading
+     */
+    g_clear_pointer (&out->loss_event, clReleaseEvent);
     clEnqueueReadBuffer (lay->net->ctx->queue,
                          out->loss_mem,
                          CL_TRUE,
                          0, sizeof (cl_float),
                          &out->loss,
-                         evcount, evlist, NULL);
+                         evcount, evlist,
+                         &out->loss_event);
 
-    /* TODO synchronize loss reading without blocking here */
-    clFinish (lay->net->ctx->queue);
-    lay->net->loss = out->loss;
+    clSetEventCallback (out->loss_event, CL_COMPLETE,
+                        on_loss_read_complete, lay);
 }
 
 static void
@@ -197,6 +238,7 @@ release (struct layer *lay)
 
     g_clear_pointer (&lay->backward_barrier, clReleaseEvent);
     g_clear_pointer (&out->truth_event, clReleaseEvent);
+    g_clear_pointer (&out->loss_event, clReleaseEvent);
 
     clReleaseKernel (out->backprop_kern);
     clReleaseProgram (out->program);
