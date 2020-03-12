@@ -170,6 +170,11 @@ compile (struct layer *lay)
     context_program_kernel (ctx, "backward_bias", &dense->backward_bias);
 
     /*
+     * Synchronize
+     */
+    clFinish (ctx->queue);
+
+    /*
      * Mark layer compiled
      */
     lay->flags |= LAYER_FLAG_COMPILED;

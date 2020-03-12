@@ -8,5 +8,6 @@
         <file>relu.cl</file>
         <file>leaky.cl</file>
         <file>clear-buffer.cl</file>
+        <file>conv-layer.cl</file>
     </gresource>
 </gresources>

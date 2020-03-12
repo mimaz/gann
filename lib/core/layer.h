@@ -30,8 +30,7 @@ enum layer_type
     LAYER_NONE,
     LAYER_INPUT,
     LAYER_OUTPUT,
-    LAYER_CONVOLUTION,
-    LAYER_ACTIVATION,
+    LAYER_CONV,
     LAYER_DENSE,
     N_LAYERS,
 };
