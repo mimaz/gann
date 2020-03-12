@@ -39,7 +39,7 @@ main (gint argc, gchar **argv)
     /*
      * Create network with given learning rate, momentum and weight decay
      */
-    net = gann_network_new_full (context, 0.5f, 0.9f, 1.0f);
+    net = gann_network_new_full (context, 0.8f, 0.95f, 1.0f);
 
     /*
      * Create input layer with shape 1x1x2
@@ -51,8 +51,9 @@ main (gint argc, gchar **argv)
      * The network is way over complex for such simple learning data set
      * But here it's just for the example purpose
      */
-    gann_network_create_dense (net, 1, 1, 8, "leaky");
-    gann_network_create_dense (net, 1, 1, 4, "softplus");
+    gann_network_create_dense (net, 1, 1, 20, "leaky");
+    gann_network_create_dense (net, 1, 1, 20, "softplus");
+    gann_network_create_dense (net, 1, 1, 20, "leaky");
     gann_network_create_dense (net, 1, 1, 1, "sigmoid");
 
     /*
@@ -112,7 +113,7 @@ main (gint argc, gchar **argv)
         /*
          * Break if the error is small enough
          */
-        if ((loss < 0.1f && i > 10) || (loss != loss)) {
+        if ((loss < 0.05f && i > 10) || (loss != loss)) {
             break;
         }
     }

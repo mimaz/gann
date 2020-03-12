@@ -129,6 +129,19 @@ struct layer *layer_make_dense (struct network *net,
                                 struct layer *prev);
 
 /*
+ * layer_make_conv:
+ * Creates convolutional layer
+ * size: size of the kernel, for example 3 for 3x3 kernel
+ * depth: number of filters
+ * activation: activation function name
+ * prev: previous layer or NULL to attach to the last one
+ */
+struct layer *layer_make_conv (struct network *net,
+                               int size, int depth, int stride,
+                               const char *activation,
+                               struct layer *prev);
+
+/*
  * layer_make_input:
  * Creates input layer
  * width: width dimension

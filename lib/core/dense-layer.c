@@ -147,7 +147,10 @@ compile (struct layer *lay)
      * Build program
      */
     context_program_clear (ctx);
-    context_program_activation (ctx, lay->activation);
+    if (g_strcmp0 (lay->activation, "linear") != 0) {
+        context_program_activation (ctx, lay->activation);
+        context_program_option (ctx, "-DWITH_ACTIVATION");
+    }
     context_program_option (ctx, "-DINPUTS=%d", lay->prev->size);
     context_program_option (ctx, "-DOUTPUTS=%d", lay->size);
 

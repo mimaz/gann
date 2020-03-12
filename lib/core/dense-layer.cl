@@ -40,11 +40,18 @@ __kernel void forward (__global const float *input_value_v,
             sum += input_value_v[inid] * weight_v[outid * INPUTS + inid];
         }
 
+#ifdef WITH_ACTIVATION
 #ifdef WITH_DERIVATIVE
         value_v[outid] = activate (sum, &derivative);
         derivative_v[outid] = derivative;
 #else
         value_v[outid] = activate (sum);
+#endif
+#else
+        value_v[outid] = sum;
+#ifdef WITH_DERIVATIVE
+        derivative_v[outid] = 1;
+#endif
 #endif
     }
 }
