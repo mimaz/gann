@@ -57,7 +57,7 @@ context_create ()
     err = clGetPlatformIDs (1, &plat_id, NULL);
     g_assert (err == 0);
 
-    err = clGetDeviceIDs (plat_id, CL_DEVICE_TYPE_CPU, 1, &ctx->device, NULL);
+    err = clGetDeviceIDs (plat_id, CL_DEVICE_TYPE_GPU, 1, &ctx->device, NULL);
     g_assert (err == 0);
 
     ctx->context = clCreateContext (0, 1, &ctx->device, NULL, NULL, &err);
@@ -66,7 +66,7 @@ context_create ()
     ctx->queue = clCreateCommandQueue (ctx->context, ctx->device, 0, &err);
     g_assert (err == 0);
 
-    ctx->group_size = 32;
+    ctx->group_size = 256;
 
     context_program_clear (ctx);
     context_program_file (ctx, "clear-buffer.cl");

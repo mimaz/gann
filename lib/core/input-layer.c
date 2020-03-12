@@ -59,24 +59,17 @@ layer_input_set_data (struct layer *lay,
                       const float *data,
                       int size)
 {
-    cl_event event;
-
     g_assert (lay->type == LAYER_INPUT);
     g_assert (size == lay->size);
 
-    event = NULL;
+    g_clear_pointer (&lay->forward_barrier, clReleaseEvent);
     clEnqueueWriteBuffer (lay->net->ctx->queue,
                           lay->value_mem,
                           CL_TRUE,
                           0, size * sizeof (cl_float),
                           data,
-                          UTIL_NONNULL (lay->forward_barrier),
-                          UTIL_PTR_OR_NULL (lay->forward_barrier),
-                          &event);
-
-    g_clear_pointer (&lay->forward_barrier, clReleaseEvent);
-
-    lay->forward_barrier = event;
+                          0, NULL,
+                          &lay->forward_barrier);
 }
 
 static void

@@ -104,6 +104,11 @@ struct layer
     int weights;
 
     /*
+     * Layer's loss, sum of all layers is the total loss
+     */
+    float loss;
+
+    /*
      * virtual functions, layer type specific
      */
     void (*compile) (struct layer *lay);

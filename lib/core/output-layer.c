@@ -32,7 +32,6 @@ struct output_layer
     cl_event loss_event;
     cl_program program;
     cl_kernel backprop_kern;
-    float loss;
 };
 
 static void compile (struct layer *lay);
@@ -145,22 +144,6 @@ forward (struct layer *lay)
     lay->value_mem = lay->prev->value_mem;
 }
 
-CL_CALLBACK static void
-on_loss_read_complete (cl_event event, cl_int status, void *user_data)
-{
-    struct layer *lay;
-    struct output_layer *out;
-
-    lay = user_data;
-
-    g_assert (lay != NULL);
-    g_assert (lay->type == LAYER_OUTPUT);
-
-    out = (struct output_layer *) lay;
-
-    lay->net->loss += out->loss;
-}
-
 static void
 backward (struct layer *lay)
 {
@@ -220,12 +203,9 @@ backward (struct layer *lay)
                          out->loss_mem,
                          CL_TRUE,
                          0, sizeof (cl_float),
-                         &out->loss,
+                         &lay->loss,
                          evcount, evlist,
                          &out->loss_event);
-
-    clSetEventCallback (out->loss_event, CL_COMPLETE,
-                        on_loss_read_complete, lay);
 }
 
 static void

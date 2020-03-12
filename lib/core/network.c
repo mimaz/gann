@@ -112,10 +112,15 @@ network_backward (struct network *net)
         layer_clear_gradient (lay);
     }
 
-    net->loss = 0;
-
     for (i = count; i > 0; i--) {
         lay = network_layer (net, i - 1);
         layer_backward (lay);
+    }
+
+    net->loss = 0;
+
+    for (i = 0; i < count; i++) {
+        lay = network_layer (net, i - 1);
+        net->loss += lay->loss;
     }
 }
