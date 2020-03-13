@@ -342,7 +342,6 @@ gann_layer_new_conv (GannNetwork *network,
                      gint filters,
                      const gchar *activation)
 {
-    return NULL;
     return g_object_new (GANN_TYPE_CONV_LAYER,
                          "network", network,
                          "size", size,

@@ -56,7 +56,8 @@ static void constructed (GObject *gobj);
 static void
 gann_conv_layer_init (GannConvLayer *self)
 {
-    g_object_bind_property (self, "depth", self, "filters",
+    g_object_bind_property (self, "depth",
+                            self, "filters",
                             G_BINDING_SYNC_CREATE);
 }
 
@@ -93,7 +94,6 @@ gann_conv_layer_class_init (GannConvLayerClass *cls)
                           "Number of filters",
                           1, G_MAXINT32, 1,
                           G_PARAM_READWRITE |
-                          G_PARAM_CONSTRUCT_ONLY |
                           G_PARAM_STATIC_STRINGS);
 
     g_object_class_install_properties (gcls, N_PROPS, props);

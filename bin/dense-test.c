@@ -1,5 +1,5 @@
 /*
- * test.c
+ * dense-test.c
  *
  * Copyright 2020 Mieszko Mazurek <mimaz@gmx.com>
  *
@@ -39,7 +39,7 @@ main (gint argc, gchar **argv)
     /*
      * Create network with given learning rate, momentum and weight decay
      */
-    net = gann_network_new (context, 0.25f, 0.95f, 1.0f);
+    net = gann_network_new (context, 0.5f, 0.99f, 1.0f);
 
     /*
      * Create input layer with shape 1x1x2
@@ -51,10 +51,8 @@ main (gint argc, gchar **argv)
      * The network is way over complex for such simple learning data set
      * But here it's just for the example purpose
      */
-    /* gann_network_create_conv (net, 3, 1, 1, "leaky"); */
-    gann_network_create_dense (net, 1, 1, 8, "leaky");
-    gann_network_create_dense (net, 1, 1, 8, "softplus");
-    gann_network_create_dense (net, 1, 1, 1, "linear");
+    gann_network_create_dense (net, 1, 1, 4, "softplus");
+    gann_network_create_dense (net, 1, 1, 1, "leaky");
 
     /*
      * Create output layer
@@ -62,7 +60,7 @@ main (gint argc, gchar **argv)
      */
     out = gann_network_create_output (net);
 
-    for (i = 0; i < 10000; i++) {
+    for (i = 0; i < 100000; i++) {
         /*
          * Randomize two bits and make simple operation, in this case XOR
          */

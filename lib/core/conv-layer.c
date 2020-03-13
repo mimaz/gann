@@ -147,6 +147,7 @@ compile (struct layer *lay)
      */
     context_program_clear (ctx);
     context_program_file (ctx, "conv-layer.cl");
+    context_program_option (ctx, "-DSIZE=%d", conv->size);
     context_program_build (ctx, &conv->program);
 
     /*

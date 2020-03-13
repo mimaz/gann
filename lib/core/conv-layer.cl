@@ -18,3 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with Gann.  If not, see <http://www.gnu.org/licenses/>.
  */
+
+__kernel void forward (__global const float *input,
+                       __global const float *kernel)
+{
+}
