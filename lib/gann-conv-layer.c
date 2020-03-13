@@ -23,12 +23,15 @@
 #include "gann-layer-private.h"
 #include "gann-network.h"
 
+#include "core/core.h"
+
 struct _GannConvLayer
 {
     GannLayer parent_instance;
 
     gint size;
     gint stride;
+    gint filters;
 };
 
 G_DEFINE_TYPE (GannConvLayer, gann_conv_layer, GANN_TYPE_LAYER);
@@ -44,8 +47,11 @@ enum
 
 static GParamSpec *props[N_PROPS];
 
-static void
-constructed (GObject *gobj);
+static void set_property (GObject *gobj, guint propid,
+                          const GValue *value, GParamSpec *spec);
+static void get_property (GObject *gobj, guint propid,
+                          GValue *value, GParamSpec *spec);
+static void constructed (GObject *gobj);
 
 static void
 gann_conv_layer_init (GannConvLayer *self)
@@ -60,6 +66,8 @@ gann_conv_layer_class_init (GannConvLayerClass *cls)
     GObjectClass *gcls = G_OBJECT_CLASS (cls);
 
     gcls->constructed = constructed;
+    gcls->set_property = set_property;
+    gcls->get_property = get_property;
 
     props[PROP_SIZE] =
         g_param_spec_int ("size",
@@ -74,6 +82,15 @@ gann_conv_layer_class_init (GannConvLayerClass *cls)
         g_param_spec_int ("stride",
                           "Stride",
                           "Kernel stride",
+                          1, G_MAXINT32, 1,
+                          G_PARAM_READWRITE |
+                          G_PARAM_CONSTRUCT_ONLY |
+                          G_PARAM_STATIC_STRINGS);
+
+    props[PROP_FILTERS] =
+        g_param_spec_int ("filters",
+                          "Filters",
+                          "Number of filters",
                           1, G_MAXINT32, 1,
                           G_PARAM_READWRITE |
                           G_PARAM_CONSTRUCT_ONLY |
@@ -96,7 +113,7 @@ constructed (GObject *gobj)
 
     core = layer_make_conv (gann_network_get_core (network),
                             gann_conv_layer_get_size (self),
-                            gann_layer_get_depth (layer),
+                            gann_conv_layer_get_filters (self),
                             gann_conv_layer_get_stride (self),
                             gann_layer_get_activation (layer),
                             NULL);
@@ -104,6 +121,58 @@ constructed (GObject *gobj)
     gann_layer_set_core (layer, core);
 
     G_OBJECT_CLASS (gann_conv_layer_parent_class)->constructed (gobj);
+}
+
+static void
+set_property (GObject *gobj,
+              guint propid,
+              const GValue *value,
+              GParamSpec *spec)
+{
+    GannConvLayer *self = GANN_CONV_LAYER (gobj);
+
+    switch (propid) {
+    case PROP_SIZE:
+        self->size = g_value_get_int (value);
+        break;
+
+    case PROP_STRIDE:
+        self->stride = g_value_get_int (value);
+        break;
+
+    case PROP_FILTERS:
+        self->filters = g_value_get_int (value);
+        break;
+
+    default:
+        G_OBJECT_WARN_INVALID_PROPERTY_ID (gobj, propid, spec);
+    }
+}
+
+static void
+get_property (GObject *gobj,
+              guint propid,
+              GValue *value,
+              GParamSpec *spec)
+{
+    GannConvLayer *self = GANN_CONV_LAYER (gobj);
+
+    switch (propid) {
+    case PROP_SIZE:
+        g_value_set_int (value, self->size);
+        break;
+
+    case PROP_STRIDE:
+        g_value_set_int (value, self->stride);
+        break;
+
+    case PROP_FILTERS:
+        g_value_set_int (value, self->filters);
+        break;
+
+    default:
+        G_OBJECT_WARN_INVALID_PROPERTY_ID (gobj, propid, spec);
+    }
 }
 
 gint
@@ -116,4 +185,10 @@ gint
 gann_conv_layer_get_stride (GannConvLayer *self)
 {
     return self->stride;
+}
+
+gint
+gann_conv_layer_get_filters (GannConvLayer *self)
+{
+    return self->filters;
 }

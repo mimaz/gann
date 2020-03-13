@@ -17,7 +17,7 @@ public_header = [
     'gann-input-layer.h',
     'gann-output-layer.h',
     'gann-dense-layer.h',
-    'gann-conv-layer.c',
+    'gann-conv-layer.h',
 ]
 
 dependencies = [
@@ -29,6 +29,18 @@ libgann = shared_library(meson.project_name(),
                          source,
                          install: true,
                          dependencies: dependencies)
+
+gir = gnome.generate_gir(libgann,
+  sources: [ source, public_header ],
+  namespace: 'Gann',
+  nsversion: '1.0',
+  header: 'gann.h',
+  install: true,
+  dependencies: dependencies)
+
+gnome.generate_vapi('gann',
+  sources: gir[0],
+  install: true)
 
 gann_dep = declare_dependency(link_with: libgann,
                               include_directories: '.')

@@ -33,6 +33,11 @@ typedef struct _GannNetwork GannNetwork;
 G_DECLARE_FINAL_TYPE (GannContext, gann_context,
                       GANN, CONTEXT, GObject);
 
+/**
+ * gann_context_new:
+ *
+ * returns: (transfer full): New context instance
+ */
 GannContext *gann_context_new ();
 void gann_context_add_network (GannContext *self,
                                GannNetwork *network);

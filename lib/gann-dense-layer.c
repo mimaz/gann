@@ -20,7 +20,6 @@
  */
 
 #include "gann-dense-layer.h"
-
 #include "gann-network.h"
 #include "gann-layer-private.h"
 

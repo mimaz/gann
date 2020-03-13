@@ -39,7 +39,7 @@ main (gint argc, gchar **argv)
     /*
      * Create network with given learning rate, momentum and weight decay
      */
-    net = gann_network_new_full (context, 0.001f, 0.99f, 1.0f);
+    net = gann_network_new (context, 0.001f, 0.99f, 1.0f);
 
     /*
      * Create input layer with shape 1x1x2

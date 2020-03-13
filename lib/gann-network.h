@@ -43,32 +43,78 @@ struct _GannNetworkClass
     GObjectClass parent_class;
 };
 
-GannNetwork *gann_network_new (GannContext *context);
-GannNetwork *gann_network_new_full (GannContext *context,
-                                    gfloat rate,
-                                    gfloat momentum,
-                                    gfloat decay);
+/**
+ * gann_network_new:
+ *
+ * returns: (transfer full): New network instance
+ */
+GannNetwork *gann_network_new (GannContext *context,
+                               gfloat rate,
+                               gfloat momentum,
+                               gfloat decay);
+
+/**
+ * gann_network_create_input:
+ *
+ * returns: (transfer full): New input layer instance
+ */
 GannInputLayer *gann_network_create_input (GannNetwork *self,
                                            gint width,
                                            gint height,
                                            gint depth);
+
+/**
+ * gann_network_create_output:
+ *
+ * returns: (transfer full): New output layer instance
+ */
 GannOutputLayer *gann_network_create_output (GannNetwork *self);
+
+/**
+ * gann_network_create_dense:
+ *
+ * returns: (transfer full): New dense layer instance
+ */
 GannDenseLayer *gann_network_create_dense (GannNetwork *self,
                                            gint width,
                                            gint height,
                                            gint depth,
                                            const gchar *activation);
+
+/**
+ * gann_network_create_conv:
+ *
+ * returns: (transfer full): New conv layer instance
+ */
 GannConvLayer *gann_network_create_conv (GannNetwork *self,
                                          gint size,
                                          gint stride,
                                          gint filters,
                                          const gchar *activation);
+
 void gann_network_forward (GannNetwork *self);
 void gann_network_backward (GannNetwork *self);
+
+/**
+ * gann_network_get_layer:
+ *
+ * returns: (transfer none): Pointer to layer at index @index
+ */
 GannLayer *gann_network_get_layer (GannNetwork *self,
                                    gint index);
+
+/**
+ * gann_network_get_core:
+ *
+ * returns: (transfer none): Pointer to underlying core structure
+ */
 struct network *gann_network_get_core (GannNetwork *self);
-void gann_network_forward (GannNetwork *self);
+
+/**
+ * gann_network_get_context:
+ *
+ * returns: (transfer none): Pointer to context instance
+ */
 GannContext *gann_network_get_context (GannNetwork *self);
 void gann_network_set_rate (GannNetwork *self,
                             gfloat rate);
@@ -79,8 +125,12 @@ gfloat gann_network_get_momentum (GannNetwork *self);
 void gann_network_set_decay (GannNetwork *self,
                              gfloat decay);
 gfloat gann_network_get_decay (GannNetwork *self);
-gint gann_network_get_layer_count (GannNetwork *self);
+gint gann_network_layer_count (GannNetwork *self);
+void gann_network_set_loss (GannNetwork *self,
+                            gfloat loss);
 gfloat gann_network_get_loss (GannNetwork *self);
+void gann_network_set_average_loss (GannNetwork *self,
+                                    gfloat loss);
 gfloat gann_network_get_average_loss (GannNetwork *self);
 
 G_END_DECLS

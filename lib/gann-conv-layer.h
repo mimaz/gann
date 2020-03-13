@@ -32,5 +32,6 @@ G_DECLARE_FINAL_TYPE (GannConvLayer, gann_conv_layer,
 
 gint gann_conv_layer_get_size (GannConvLayer *self);
 gint gann_conv_layer_get_stride (GannConvLayer *self);
+gint gann_conv_layer_get_filters (GannConvLayer *self);
 
 G_END_DECLS

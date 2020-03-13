@@ -114,7 +114,7 @@ gann_network_class_init (GannNetworkClass *cls)
                           "Layer count",
                           "Number of layers",
                           0, G_MAXINT32, 0,
-                          G_PARAM_READWRITE |
+                          G_PARAM_READABLE |
                           G_PARAM_STATIC_STRINGS);
 
     props[PROP_LOSS] =
@@ -235,14 +235,8 @@ get_property (GObject *gobj,
 }
 
 GannNetwork *
-gann_network_new (GannContext *context)
-{
-    return gann_network_new_full (context, 0.001f, 0.99f, 1.0f);
-}
-
-GannNetwork *
-gann_network_new_full (GannContext *context,
-                       gfloat rate, gfloat momentum, gfloat decay)
+gann_network_new (GannContext *context,
+                  gfloat rate, gfloat momentum, gfloat decay)
 {
     return g_object_new (GANN_TYPE_NETWORK,
                          "context", context,
@@ -444,12 +438,38 @@ gann_network_get_layer_count (GannNetwork *self)
     return p->layer_arr->len;
 }
 
+void
+gann_network_set_loss (GannNetwork *self,
+                       gfloat loss)
+{
+    GannNetworkPrivate *p = gann_network_get_instance_private (self);
+
+    if (loss != p->net->loss) {
+        p->net->loss = loss;
+        g_object_notify_by_pspec (G_OBJECT (self),
+                                  props[PROP_LOSS]);
+    }
+}
+
 gfloat
 gann_network_get_loss (GannNetwork *self)
 {
     GannNetworkPrivate *p = gann_network_get_instance_private (self);
 
     return p->net->loss;
+}
+
+void
+gann_network_set_average_loss (GannNetwork *self,
+                               gfloat loss)
+{
+    GannNetworkPrivate *p = gann_network_get_instance_private (self);
+
+    if (loss != p->net->loss) {
+        p->avg_loss = loss;
+        g_object_notify_by_pspec (G_OBJECT (self),
+                                  props[PROP_LOSS]);
+    }
 }
 
 gfloat
