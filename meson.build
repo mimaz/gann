@@ -10,4 +10,4 @@ opencl_dep = dependency('OpenCL')
 math_dep = cc.find_library('m')
 
 subdir('lib/')
-subdir('bin/')
+subdir('test/')

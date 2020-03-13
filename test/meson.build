@@ -1,3 +1,8 @@
+source = [
+    'application.c',
+    'main.c',
+]
+
 dependencies = [
     gobject_dep,
     gann_dep,
@@ -5,10 +10,6 @@ dependencies = [
     dependency('gdk-pixbuf-2.0'),
 ]
 
-executable('conv-test',
-           'conv-test.c',
-           dependencies: dependencies)
-
-executable('dense-test',
-           'dense-test.c',
+executable('gann-test',
+           source,
            dependencies: dependencies)
