@@ -38,9 +38,5 @@ gir = gnome.generate_gir(libgann,
   install: true,
   dependencies: dependencies)
 
-gnome.generate_vapi('gann',
-  sources: gir[0],
-  install: true)
-
 gann_dep = declare_dependency(link_with: libgann,
                               include_directories: '.')

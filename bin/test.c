@@ -39,20 +39,22 @@ main (gint argc, gchar **argv)
     /*
      * Create network with given learning rate, momentum and weight decay
      */
-    net = gann_network_new (context, 0.001f, 0.99f, 1.0f);
+    net = gann_network_new (context, 0.25f, 0.95f, 1.0f);
 
     /*
      * Create input layer with shape 1x1x2
      */
-    in = gann_network_create_input (net, 32, 32, 1);
+    in = gann_network_create_input (net, 1, 1, 2);
 
     /*
      * Create some hidden layers
      * The network is way over complex for such simple learning data set
      * But here it's just for the example purpose
      */
-    gann_network_create_conv (net, 3, 1, 1, "leaky");
-    gann_network_create_dense (net, 1, 1, 1, "leaky");
+    /* gann_network_create_conv (net, 3, 1, 1, "leaky"); */
+    gann_network_create_dense (net, 1, 1, 8, "leaky");
+    gann_network_create_dense (net, 1, 1, 8, "softplus");
+    gann_network_create_dense (net, 1, 1, 1, "linear");
 
     /*
      * Create output layer
