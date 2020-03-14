@@ -30,13 +30,19 @@ libgann = shared_library(meson.project_name(),
                          install: true,
                          dependencies: dependencies)
 
-gir = gnome.generate_gir(libgann,
-  sources: [ source, public_header ],
-  namespace: 'Gann',
-  nsversion: '1.0',
-  header: 'gann.h',
-  install: true,
-  dependencies: dependencies)
+introspection = gnome.generate_gir(libgann,
+                                   sources: [ source, public_header ],
+                                   includes: [ 'GObject-2.0' ],
+                                   namespace: 'Gann',
+                                   nsversion: '1.0',
+                                   header: 'gann.h',
+                                   install: true,
+                                   dependencies: dependencies)
+
+vapi = gnome.generate_vapi('gann',
+                           sources: introspection.get(0),
+                           install: true)
 
 gann_dep = declare_dependency(link_with: libgann,
+                              dependencies: [ vapi ],
                               include_directories: '.')

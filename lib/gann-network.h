@@ -56,7 +56,7 @@ GannNetwork *gann_network_new (GannContext *context,
 /**
  * gann_network_create_input:
  *
- * returns: (transfer full): New input layer instance
+ * returns: (transfer none): New input layer instance
  */
 GannInputLayer *gann_network_create_input (GannNetwork *self,
                                            gint width,
@@ -66,14 +66,14 @@ GannInputLayer *gann_network_create_input (GannNetwork *self,
 /**
  * gann_network_create_output:
  *
- * returns: (transfer full): New output layer instance
+ * returns: (transfer none): New output layer instance
  */
 GannOutputLayer *gann_network_create_output (GannNetwork *self);
 
 /**
  * gann_network_create_dense:
  *
- * returns: (transfer full): New dense layer instance
+ * returns: (transfer none): New dense layer instance
  */
 GannDenseLayer *gann_network_create_dense (GannNetwork *self,
                                            gint width,
@@ -84,7 +84,7 @@ GannDenseLayer *gann_network_create_dense (GannNetwork *self,
 /**
  * gann_network_create_conv:
  *
- * returns: (transfer full): New conv layer instance
+ * returns: (transfer none): New conv layer instance
  */
 GannConvLayer *gann_network_create_conv (GannNetwork *self,
                                          gint size,

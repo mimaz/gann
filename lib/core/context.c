@@ -274,10 +274,25 @@ context_clear_buffer (struct context *ctx,
                       cl_int size,
                       cl_event *ev)
 {
-    clSetKernelArg (ctx->clear_kernel, 0, sizeof (cl_mem), &mem);
-    clSetKernelArg (ctx->clear_kernel, 1, sizeof (cl_int), &size);
-    context_run_sparse (ctx, ctx->clear_kernel, size,
-                        0, NULL, ev);
+    g_autofree float *value_v;
+    int i;
+
+    value_v = g_new (float, size);
+
+    for (i = 0; i < size; i++) {
+        value_v[i] = 0;
+    }
+
+    clEnqueueWriteBuffer (ctx->queue,
+                          mem,
+                          CL_TRUE,
+                          0, size * sizeof (cl_float),
+                          value_v,
+                          0, NULL, NULL);
+    /* clSetKernelArg (ctx->clear_kernel, 0, sizeof (cl_mem), &mem); */
+    /* clSetKernelArg (ctx->clear_kernel, 1, sizeof (cl_int), &size); */
+    /* context_run_sparse (ctx, ctx->clear_kernel, size, */
+    /*                     0, NULL, ev); */
 }
 
 void

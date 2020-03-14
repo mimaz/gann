@@ -30,6 +30,10 @@ G_BEGIN_DECLS
 G_DECLARE_FINAL_TYPE (GannInputLayer, gann_input_layer,
                       GANN, INPUT_LAYER, GannLayer);
 
+/**
+ * gann_input_layer_set_input:
+ * @data: (array length=datasize): float array
+ */
 void gann_input_layer_set_input (GannInputLayer *self,
                                  const gfloat *data,
                                  gsize datasize);

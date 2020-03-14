@@ -267,6 +267,7 @@ backward (struct layer *lay)
 
     if (lay->next->backward_barrier != NULL) {
         evlist[evcount++] = lay->next->backward_barrier;
+        clRetainEvent (lay->next->backward_barrier);
     }
 
 

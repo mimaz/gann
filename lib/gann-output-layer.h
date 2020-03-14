@@ -30,6 +30,10 @@ G_BEGIN_DECLS
 G_DECLARE_FINAL_TYPE (GannOutputLayer, gann_output_layer,
                       GANN, OUTPUT_LAYER, GannLayer);
 
+/**
+ * gann_output_layer_set_truth:
+ * @data: (array length=datasize): truth data array
+ */
 void gann_output_layer_set_truth (GannOutputLayer *self,
                                   const gfloat *data,
                                   gsize datasize);

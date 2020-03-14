@@ -80,8 +80,9 @@ GannLayer *gann_layer_new_conv (GannNetwork *network,
 
 /**
  * gann_layer_get_data:
+ * @size: return array's size
  *
- * returns: (transfer none): Pointer to layer's data
+ * returns: (array length=size) (transfer none): Pointer to layer's data
  */
 const gfloat *gann_layer_get_data (GannLayer *self,
                                    gsize *size);
