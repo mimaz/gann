@@ -80,33 +80,35 @@ constructed (GObject *gobj)
 }
 
 void
-gann_input_layer_set_input (GannInputLayer *self,
-                            const gfloat *data,
-                            gsize datasize)
+gann_input_layer_set_data (GannInputLayer *self,
+                           const gfloat *data,
+                           gsize datasize)
 {
     layer_input_set_data (gann_layer_get_core (GANN_LAYER (self)),
                           data, datasize);
 }
 
 void
-gann_input_layer_set_input_floats (GannInputLayer *self,
-                                   gfloat first, ...)
+gann_input_layer_set_data_bytes (GannInputLayer *self,
+                                 const guint8 *data,
+                                 gsize datasize)
 {
-    GArray *arr;
-    va_list args;
+    GannLayer *layer = GANN_LAYER (self);
+    gint width, height, depth;
+    gfloat *floats;
+    gsize i;
 
-    arr = g_array_new (FALSE, FALSE, sizeof (gfloat));
-    va_start (args, first);
+    width = gann_layer_get_width (layer);
+    height = gann_layer_get_height (layer);
+    depth = gann_layer_get_depth (layer);
 
-    do {
-        g_array_append_val (arr, first);
+    g_assert (datasize == width * height * depth);
 
-        /* floats are promoted as doubles */
-        first = va_arg (args, gdouble);
-    } while (first >= 0);
+    floats = g_newa (gfloat, width * height * depth);
 
-    gann_input_layer_set_input (self, (gfloat *) arr->data, arr->len);
+    for (i = 0; i < datasize; i++) {
+        floats[i] = data[i] / 255.0f;
+    }
 
-    g_array_unref (arr);
-    va_end (args);
+    gann_input_layer_set_data (self, floats, datasize);
 }

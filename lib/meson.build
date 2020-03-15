@@ -25,6 +25,11 @@ dependencies = [
     gobject_dep,
 ]
 
+gir_includes = [
+  'GObject-2.0',
+  'GLib-2.0',
+]
+
 libgann = shared_library(meson.project_name(),
                          source,
                          install: true,
@@ -32,7 +37,7 @@ libgann = shared_library(meson.project_name(),
 
 introspection = gnome.generate_gir(libgann,
                                    sources: [ source, public_header ],
-                                   includes: [ 'GObject-2.0' ],
+                                   includes: gir_includes,
                                    namespace: 'Gann',
                                    nsversion: '1.0',
                                    header: 'gann.h',

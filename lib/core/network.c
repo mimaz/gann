@@ -23,6 +23,8 @@
 #include "layer.h"
 #include "context.h"
 
+#include <math.h>
+
 struct network *
 network_create (struct context *ctx)
 {
@@ -123,4 +125,6 @@ network_backward (struct network *net)
         lay = network_layer (net, i - 1);
         net->loss += lay->loss;
     }
+
+    net->loss = logf (net->loss + 1);
 }

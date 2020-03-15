@@ -88,6 +88,15 @@ const gfloat *gann_layer_get_data (GannLayer *self,
                                    gsize *size);
 
 /**
+ * gann_layer_get_data_bytes:
+ * 
+ * returns: (array length=size) (transfer none): pointer to layer's data
+ * converted to bytes
+ */
+const guint8 *gann_layer_get_data_bytes (GannLayer *self,
+                                         gsize *size);
+
+/**
  * gann_layer_get_core:
  *
  * returns: (transfer none): Pointer to underlying core structure

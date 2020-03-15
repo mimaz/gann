@@ -31,13 +31,19 @@ G_DECLARE_FINAL_TYPE (GannInputLayer, gann_input_layer,
                       GANN, INPUT_LAYER, GannLayer);
 
 /**
- * gann_input_layer_set_input:
+ * gann_input_layer_set_data:
  * @data: (array length=datasize): float array
  */
-void gann_input_layer_set_input (GannInputLayer *self,
-                                 const gfloat *data,
-                                 gsize datasize);
-void gann_input_layer_set_input_floats (GannInputLayer *self,
-                                        gfloat first, ...);
+void gann_input_layer_set_data (GannInputLayer *self,
+                                const gfloat *data,
+                                gsize datasize);
+
+/**
+ * gann_input_layer_set_data_bytes:
+ * @data: (array length=datasize): byte array
+ */
+void gann_input_layer_set_data_bytes (GannInputLayer *self,
+                                      const guint8 *data,
+                                      gsize datasize);
 
 G_END_DECLS

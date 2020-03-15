@@ -234,7 +234,7 @@ backward (struct layer *lay)
     evbackprop = NULL;
     evbias = NULL;
 
-    ratefactor = lay->net->rate * (1 - lay->net->momentum);
+    ratefactor = lay->net->rate * (1 - lay->net->momentum) * lay->net->loss;
     dense = (struct dense_layer *) lay;
 
 
