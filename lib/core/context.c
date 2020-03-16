@@ -50,9 +50,10 @@ context_create ()
                                             NULL,
                                             (GDestroyNotify)
                                             g_bytes_unref);
-    ctx->resource = cl_code_get_resource ();
     ctx->activationtable = g_hash_table_new (g_str_hash,
                                              g_str_equal);
+    ctx->resource = cl_code_get_resource ();
+    ctx->rand = g_rand_new_with_seed (0);
 
     err = clGetPlatformIDs (1, &plat_id, NULL);
     g_assert (err == 0);
@@ -100,6 +101,7 @@ context_free (struct context *ctx)
     g_assert_null (ctx->netlist);
     g_hash_table_unref (ctx->codetable);
     g_hash_table_unref (ctx->activationtable);
+    g_rand_free (ctx->rand);
 
     clReleaseCommandQueue (ctx->queue);
     clReleaseContext (ctx->context);

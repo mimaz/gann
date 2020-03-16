@@ -44,6 +44,9 @@ struct context
     /* OpenCL code GResource object */
     GResource *resource;
 
+    /* Randomizer */
+    GRand *rand;
+
     /* OpenCL context handles */
     cl_device_id device;
     cl_context context;
