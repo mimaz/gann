@@ -53,10 +53,6 @@ struct context
     GString *options;
     GPtrArray *sources;
     cl_program built_program;
-
-    /* Clear buffer program */
-    cl_program clear_program;
-    cl_kernel clear_kernel;
 };
 
 /*

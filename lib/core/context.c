@@ -68,11 +68,6 @@ context_create ()
 
     ctx->group_size = 256;
 
-    context_program_clear (ctx);
-    context_program_file (ctx, "clear-buffer.cl");
-    context_program_build (ctx, &ctx->clear_program);
-    context_program_kernel (ctx, "clear", &ctx->clear_kernel);
-
     add_activation_from_source (ctx, "sigmoid", "sigmoid.cl");
     add_activation_from_source (ctx, "softplus", "softplus.cl");
     add_activation_from_source (ctx, "relu", "relu.cl");
@@ -288,11 +283,7 @@ context_clear_buffer (struct context *ctx,
                           CL_TRUE,
                           0, size * sizeof (cl_float),
                           value_v,
-                          0, NULL, NULL);
-    /* clSetKernelArg (ctx->clear_kernel, 0, sizeof (cl_mem), &mem); */
-    /* clSetKernelArg (ctx->clear_kernel, 1, sizeof (cl_int), &size); */
-    /* context_run_sparse (ctx, ctx->clear_kernel, size, */
-    /*                     0, NULL, ev); */
+                          0, NULL, ev);
 }
 
 void
