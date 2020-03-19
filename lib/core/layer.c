@@ -71,12 +71,14 @@ layer_load_value (struct layer *lay,
 {
     g_assert (lay->value_mem != 0);
     g_assert (offset + count <= lay->size);
+    clFinish (lay->net->ctx->queue);
     clEnqueueReadBuffer (lay->net->ctx->queue,
                          lay->value_mem,
                          CL_TRUE,
                          offset * sizeof (cl_float),
                          count * sizeof (cl_float),
                          buff, 0, NULL, NULL);
+    clFinish (lay->net->ctx->queue);
 }
 
 void

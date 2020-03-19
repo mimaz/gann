@@ -19,6 +19,19 @@
  * along with Gann.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-__kernel void forward ()
+float gemm (__global const float **x,
+            __global const float *k)
 {
+}
+
+__kernel void forward (__global const float *input_v,
+                       __global const float *kernel_v,
+                       __global float *output_v)
+{
+    __private int id, x, y, z;
+    __private float *xvector[SIZE * SIZE * DEPTH];
+    
+    id = get_global_id (0);
+
+    output_v[id] = input_v[id];
 }

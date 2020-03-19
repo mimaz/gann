@@ -25,13 +25,12 @@ public void conv_test () throws Error
     var stage = new Clutter.Stage ();
     var image = new Clutter.Image ();
 
-    pixbuf = pixbuf.scale_simple (32, 32, Gdk.InterpType.NEAREST);
+    pixbuf = pixbuf.scale_simple (64, 64, Gdk.InterpType.NEAREST);
 
     var context = new Gann.Context ();
     var network = new Gann.Network (context, 0.5f, 0.99f, 1.0f);
-    var input = network.create_input (32, 32, 3);
-    network.create_dense (32, 32, 3, "leaky");
-    // network.create_conv (1, 1, 3, "softplus");
+    var input = network.create_input (64, 64, 3);
+    network.create_conv (1, 1, 3, "softplus");
     var output = network.create_output ();
 
     input.set_data_bytes (pixbuf.get_pixels_with_length ());

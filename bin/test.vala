@@ -24,8 +24,8 @@ int main (string[] args)
     Clutter.init (ref args);
 
     try {
-        // conv_test ();
-        dense_test ();
+        conv_test ();
+        // dense_test ();
     } catch (Error error) {
         return 1;
     }

@@ -21,6 +21,7 @@
 
 #include "layer.h"
 #include "network.h"
+#include "util.h"
 
 struct conv_layer
 {
@@ -29,6 +30,7 @@ struct conv_layer
     int depth;
     int stride;
     cl_program program;
+    cl_kernel forward;
 };
 
 static void compile (struct layer *lay);
@@ -38,7 +40,7 @@ static void release (struct layer *lay);
 
 struct layer *
 layer_make_conv (struct network *net,
-                 int size, int depth, int stride,
+                 int size, int stride, int filters,
                  const char *activation,
                  struct layer *prev)
 {
@@ -53,16 +55,19 @@ layer_make_conv (struct network *net,
         prev = network_layer_last (net);
     }
 
+    prev->next = lay;
+
     width = prev->width;
     height = prev->height;
 
     lay->net = net;
+    lay->prev = prev;
     lay->type = LAYER_CONV;
     lay->activation = activation;
     lay->width = width;
     lay->height = height;
-    lay->depth = depth;
-    lay->size = width * height * depth;
+    lay->depth = filters;
+    lay->size = width * height * filters;
     lay->compile = compile;
     lay->forward = forward;
     lay->backward = backward;
@@ -148,17 +153,55 @@ compile (struct layer *lay)
     context_program_clear (ctx);
     context_program_file (ctx, "conv-layer.cl");
     context_program_option (ctx, "-DSIZE=%d", conv->size);
+    context_program_option (ctx, "-DSTRIDE=%d", conv->stride);
+    context_program_option (ctx, "-DFILTERS=%d", lay->depth);
+    context_program_option (ctx, "-DWIDTH=%d", lay->width);
+    context_program_option (ctx, "-DHEIGHT=%d", lay->height);
+    context_program_option (ctx, "-DDEPTH=%d", lay->prev->depth);
     context_program_build (ctx, &conv->program);
+    context_program_kernel (ctx, "forward", &conv->forward);
 
     /*
      * Synchronize
      */
     clFinish (ctx->queue);
+
+    /*
+     * Mark compiled
+     */
+    lay->flags |= LAYER_FLAG_COMPILED;
 }
 
 static void
 forward (struct layer *lay)
 {
+    struct conv_layer *conv;
+    size_t globsiz, locsiz;
+    cl_kernel kern;
+    cl_int err;
+
+    g_assert (lay->type == LAYER_CONV);
+    conv = (struct conv_layer *) lay;
+
+    locsiz = 1;
+    globsiz = lay->size;
+
+    kern = conv->forward;
+
+    clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->prev->value_mem);
+    clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->weight_mem);
+    clSetKernelArg (kern, 2, sizeof (cl_mem), &lay->value_mem);
+
+    g_clear_pointer (&lay->forward_barrier, clReleaseEvent);
+
+    err = clEnqueueNDRangeKernel (lay->net->ctx->queue,
+                                  kern, 1, NULL,
+                                  &globsiz, &locsiz,
+                                  UTIL_NONNULL (lay->prev->forward_barrier),
+                                  UTIL_PTR_OR_NULL (lay->prev->forward_barrier),
+                                  &lay->forward_barrier);
+    g_assert (err == CL_SUCCESS);
+    clFinish (lay->net->ctx->queue);
 }
 
 static void

@@ -260,6 +260,7 @@ gann_layer_get_data_bytes (GannLayer *self,
         p->bytes_buff = g_new (guint8, p->l->size);
     }
 
+    g_message ("size: %lu", *size);
     for (i = 0; i < *size; i++) {
         p->bytes_buff[i] = p->value_buff[i] * 255.0f;
     }
@@ -365,12 +366,14 @@ gann_layer_new_conv (GannNetwork *network,
                      gint filters,
                      const gchar *activation)
 {
+    g_message ("conv %d", filters);
     return g_object_new (GANN_TYPE_CONV_LAYER,
                          "network", network,
                          "size", size,
                          "width", 1,
                          "height", 1,
                          "depth", filters,
+                         "filters", filters,
                          "stride", stride,
                          "activation", activation,
                          NULL);
