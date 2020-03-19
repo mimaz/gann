@@ -30,7 +30,7 @@ public void conv_test () throws Error
     var context = new Gann.Context ();
     var network = new Gann.Network (context, 0.5f, 0.99f, 1.0f);
     var input = network.create_input (64, 64, 3);
-    network.create_conv (1, 1, 3, "softplus");
+    network.create_conv (3, 1, 3, "softplus");
     var output = network.create_output ();
 
     input.set_data_bytes (pixbuf.get_pixels_with_length ());

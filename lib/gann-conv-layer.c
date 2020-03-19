@@ -113,6 +113,7 @@ constructed (GObject *gobj)
     self = GANN_CONV_LAYER (gobj);
     network = gann_layer_get_network (layer);
 
+    g_message ("conv size %d", gann_conv_layer_get_size (self));
     core = layer_make_conv (gann_network_get_core (network),
                             gann_conv_layer_get_size (self),
                             gann_conv_layer_get_stride (self),

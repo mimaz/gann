@@ -19,19 +19,67 @@
  * along with Gann.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-float gemm (__global const float **x,
-            __global const float *k)
+__constant float *input_channel (__constant float *input_v,
+                                 __constant float *zero_v,
+                                 const int y,
+                                 const int x)
 {
+    __private int off;
+
+    if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) {
+        return zero_v;
+    }
+
+    off = y * HEIGHT * DEPTH + x * DEPTH;
+
+    return input_v + off;
 }
 
-__kernel void forward (__global const float *input_v,
-                       __global const float *kernel_v,
+__constant float *filter_channel (__constant float *kernel_v,
+                                  const int y,
+                                  const int x,
+                                  const int z)
+{
+    __private int off;
+
+    off = z * SIZE * SIZE * DEPTH + y * SIZE * DEPTH + x * DEPTH;
+
+    return kernel_v + off;
+}
+
+__kernel void forward (__constant float *input_v,
+                       __constant float *kernel_v,
+                       __constant float *zero_v,
                        __global float *output_v)
 {
-    __private int id, x, y, z;
-    __private float *xvector[SIZE * SIZE * DEPTH];
-    
-    id = get_global_id (0);
+    __constant float *__private xvector;
+    __constant float *__private kvector;
+    __private int x, y, z, yk, xk, d, id;
+    __private float sum;
 
-    output_v[id] = input_v[id];
+    y = get_global_id (0);
+    x = get_global_id (1);
+    z = get_global_id (2);
+
+    sum = 0;
+
+    for (yk = 0; yk < SIZE; yk++) {
+        for (xk = 0; xk < SIZE; xk++) {
+            xvector = input_channel (input_v, zero_v,
+                                     y + yk - YKSHIFT,
+                                     x + xk - XKSHIFT);
+            kvector = filter_channel (kernel_v,
+                                      y, x, z);
+
+            for (d = 0; d < DEPTH; d++) {
+                /* sum += xvector[d] * kvector[d]; */
+                sum += xvector[d] * 1.0f / (SIZE * SIZE * DEPTH);
+            }
+        }
+    }
+
+    id = y * HEIGHT * FILTERS + x * FILTERS + z;
+
+    /* output_v[id] = input_v[id]; */
+    output_v[id] = sum;
 }

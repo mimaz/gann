@@ -31,6 +31,7 @@ struct conv_layer
     int stride;
     cl_program program;
     cl_kernel forward;
+    cl_mem zero_mem;
 };
 
 static void compile (struct layer *lay);
@@ -113,6 +114,8 @@ compile (struct layer *lay)
                          lay->weights, CL_MEM_READ_WRITE);
     layer_create_buffer (lay, &lay->delta_mem,
                          lay->weights, CL_MEM_READ_WRITE);
+    layer_create_buffer (lay, &conv->zero_mem,
+                         conv->depth, CL_MEM_READ_WRITE);
 
     /*
      * Set weights
@@ -146,6 +149,7 @@ compile (struct layer *lay)
     context_clear_buffer (ctx, lay->bias_mem, lay->size, NULL);
     context_clear_buffer (ctx, lay->bias_delta_mem, lay->size, NULL);
     context_clear_buffer (ctx, lay->delta_mem, lay->weights, NULL);
+    context_clear_buffer (ctx, conv->zero_mem, conv->depth, NULL);
 
     /*
      * Build CL program
@@ -158,8 +162,11 @@ compile (struct layer *lay)
     context_program_option (ctx, "-DWIDTH=%d", lay->width);
     context_program_option (ctx, "-DHEIGHT=%d", lay->height);
     context_program_option (ctx, "-DDEPTH=%d", lay->prev->depth);
+    context_program_option (ctx, "-DYKSHIFT=%d", 1);
+    context_program_option (ctx, "-DXKSHIFT=%d", 1);
     context_program_build (ctx, &conv->program);
     context_program_kernel (ctx, "forward", &conv->forward);
+    g_message ("gsize: %d", conv->size);
 
     /*
      * Synchronize
@@ -176,27 +183,32 @@ static void
 forward (struct layer *lay)
 {
     struct conv_layer *conv;
-    size_t globsiz, locsiz;
+    size_t globsiz[3], locsiz[3];
     cl_kernel kern;
     cl_int err;
 
     g_assert (lay->type == LAYER_CONV);
     conv = (struct conv_layer *) lay;
 
-    locsiz = 1;
-    globsiz = lay->size;
+    locsiz[0] = 1;
+    locsiz[1] = 1;
+    locsiz[2] = 1;
+    globsiz[0] = lay->width;
+    globsiz[1] = lay->height;
+    globsiz[2] = lay->depth;
 
     kern = conv->forward;
 
     clSetKernelArg (kern, 0, sizeof (cl_mem), &lay->prev->value_mem);
     clSetKernelArg (kern, 1, sizeof (cl_mem), &lay->weight_mem);
-    clSetKernelArg (kern, 2, sizeof (cl_mem), &lay->value_mem);
+    clSetKernelArg (kern, 2, sizeof (cl_mem), &conv->zero_mem);
+    clSetKernelArg (kern, 3, sizeof (cl_mem), &lay->value_mem);
 
     g_clear_pointer (&lay->forward_barrier, clReleaseEvent);
 
     err = clEnqueueNDRangeKernel (lay->net->ctx->queue,
-                                  kern, 1, NULL,
-                                  &globsiz, &locsiz,
+                                  kern, 3, NULL,
+                                  globsiz, locsiz,
                                   UTIL_NONNULL (lay->prev->forward_barrier),
                                   UTIL_PTR_OR_NULL (lay->prev->forward_barrier),
                                   &lay->forward_barrier);
