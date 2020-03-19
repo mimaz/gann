@@ -25,7 +25,7 @@ public void dense_test () throws Error
      * Create context and network instances
      */
     var context = new Gann.Context ();
-    var network = new Gann.Network (context, 1.0f, 0.98f, 1.0f);
+    var network = new Gann.Network (context, 0.5f, 0.99f, 1.0f);
 
     /*
      * Create layers, keep references to input in output ones
@@ -34,8 +34,10 @@ public void dense_test () throws Error
      * available activations: relu, leaky, sigmoid, softplus, linear
      */
     var input = network.create_input (1, 1, 2);
-    network.create_dense (1, 1, 16, "relu");
-    network.create_dense (1, 1, 16, "relu");
+    network.create_dense (1, 1, 64, "leaky");
+    network.create_dense (1, 1, 64, "relu");
+    network.create_dense (1, 1, 64, "sigmoid");
+    network.create_dense (1, 1, 64, "softplus");
     network.create_dense (1, 1, 1, "linear");
     var output = network.create_output ();
 
@@ -51,9 +53,10 @@ public void dense_test () throws Error
          * output. Then convert these values to proper float arrays
          * for both input and output layer (so input and truth values)
          */
-        var p = rand.int_range (0, 2);
-        var q = rand.int_range (0, 2);
-        var e = p ^ q;
+        int p = (int) rand.boolean ();
+        int q = (int) rand.boolean ();
+        int e = (int) (p == 0 && q == 0);
+        // e = (int) (p == 0);
 
         float[] indata = { p, q, };
         float[] outdata = { e, };
@@ -91,7 +94,7 @@ public void dense_test () throws Error
         /*
          * Break if trained enough
          */
-        if (i > 10 && loss < 0.1f) {
+        if (i > 10 && loss < 0.05f) {
             break;
         }
 

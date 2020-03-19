@@ -84,6 +84,7 @@ compile (struct layer *lay)
     struct dense_layer *dense;
     struct context *ctx;
     g_autofree float *weight_v;
+    GRand *rand;
     int i;
 
     g_assert (lay->type == LAYER_DENSE);
@@ -91,6 +92,7 @@ compile (struct layer *lay)
 
     dense = (struct dense_layer *) lay;
     ctx = lay->net->ctx;
+    rand = lay->net->ctx->rand;
 
     lay->weights = lay->prev->size * lay->size;
 
@@ -120,9 +122,9 @@ compile (struct layer *lay)
     weight_v = g_new (float, lay->weights);
 
     for (i = 0; i < lay->weights; i++) {
-        float r1 = cosf (2.0f * (float) M_PI * rand () / RAND_MAX);
-        float r2 = sqrtf (-2.0f  * logf ((float) rand () / RAND_MAX));
-        float d = (r1 * r2) * sqrtf (2.0f / lay->prev->size);
+        float r1 = 2.0f * (float) M_PI * (float) g_rand_double (rand);
+        float r2 = -2.0f  * logf ((float) g_rand_double (rand));
+        float d = (cosf (r1) * sqrtf (r2)) * sqrtf (2.0f / lay->prev->size);
 
         weight_v[i] = d;
     }

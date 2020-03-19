@@ -35,7 +35,6 @@ __kernel void forward (__global const float *input_value_v,
 
     if (outid < OUTPUTS) {
         sum = bias_v[outid];
-        sum = 0;
 
         for (inid = 0; inid < INPUTS; inid++) {
             sum += input_value_v[inid] * weight_v[outid * INPUTS + inid];
