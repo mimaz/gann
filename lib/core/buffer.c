@@ -1,5 +1,5 @@
 /*
- * gann.h
+ * buffer.c
  *
  * Copyright 2020 Mieszko Mazurek <mimaz@gmx.com>
  *
@@ -19,12 +19,4 @@
  * along with Gann.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#pragma once
-
-#include "gann-network.h"
-#include "gann-input-layer.h"
-#include "gann-output-layer.h"
-#include "gann-dense-layer.h"
-#include "gann-conv-layer.h"
-#include "gann-conv-filter.h"
-#include "gann-context.h"
+#include "buffer.h"

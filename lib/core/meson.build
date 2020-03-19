@@ -7,6 +7,7 @@ source = [
     'output-layer.c',
     'context.c',
     'util.c',
+    'buffer.c',
 ]
 
 resource = gnome.compile_resources(

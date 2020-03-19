@@ -200,12 +200,25 @@ gann_conv_filter_write_row (GannConvFilter *self,
                             const gfloat *value_v,
                             gsize value_c)
 {
+    gint i;
+
     g_return_val_if_fail (value_c == self->width, self);
     g_return_val_if_fail (layer < self->depth, self);
     g_return_val_if_fail (row < self->height, self);
 
-    memcpy (self->value_v + row * self->width * self->depth,
-            value_v, value_c * sizeof (gfloat));
+    if (layer < 0) {
+        for (i = 0; i < self->depth; i++) {
+            gann_conv_filter_write_row (self, i, row, value_v, value_c);
+        }
+    }
+    else if (row < 0) {
+        for (i = 0; i < self->height; i++) {
+            gann_conv_filter_write_row (self, layer, i, value_v, value_c);
+        }
+    } else {
+        memcpy (self->value_v + row * self->width * self->depth,
+                value_v, value_c * sizeof (gfloat));
+    }
 
     return self;
 }

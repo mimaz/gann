@@ -1,5 +1,5 @@
 /*
- * gann.h
+ * buffer.h
  *
  * Copyright 2020 Mieszko Mazurek <mimaz@gmx.com>
  *
@@ -21,10 +21,15 @@
 
 #pragma once
 
-#include "gann-network.h"
-#include "gann-input-layer.h"
-#include "gann-output-layer.h"
-#include "gann-dense-layer.h"
-#include "gann-conv-layer.h"
-#include "gann-conv-filter.h"
-#include "gann-context.h"
+#include "context.h"
+
+#define BUFFER_READ_DIRTY 1
+#define BUFFER_WRITE_DIRTY 1
+
+struct buffer
+{
+    cl_mem mem;
+    int flags;
+};
+
+struct buffer *buffer_create ();

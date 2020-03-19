@@ -22,6 +22,7 @@
 #pragma once
 
 #include "gann-layer.h"
+#include "gann-conv-filter.h"
 
 G_BEGIN_DECLS
 
@@ -41,6 +42,26 @@ GannConvLayer *gann_conv_layer_new (gint kernel_size,
                                     gint stride,
                                     gint filters,
                                     const gchar *activation);
+
+/**
+ * gann_conv_layer_set_filter:
+ * @index: filter index
+ * @filter: new filter instance
+ *
+ * Sets new filter for the layer
+ */
+void gann_conv_layer_set_filter (GannConvLayer *self,
+                                 gint index,
+                                 GannConvFilter *filter);
+
+/**
+ * gann_conv_layer_get_filter:
+ * @index: filter index
+ * 
+ * returns: (transfer none): filter instance
+ */
+GannConvFilter *gann_conv_layer_get_filter (GannConvLayer *self,
+                                            gint index);
 
 gint gann_conv_layer_get_kernel_size (GannConvLayer *self);
 gint gann_conv_layer_get_stride (GannConvLayer *self);

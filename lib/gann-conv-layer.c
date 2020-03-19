@@ -32,6 +32,7 @@ struct _GannConvLayer
     gint kernel_size;
     gint stride;
     gint filters;
+    GPtrArray *filter_arr;
 };
 
 G_DEFINE_TYPE (GannConvLayer, gann_conv_layer, GANN_TYPE_LAYER);
@@ -52,6 +53,7 @@ static void set_property (GObject *gobj, guint propid,
 static void get_property (GObject *gobj, guint propid,
                           GValue *value, GParamSpec *spec);
 static void attached (GannLayer *layer);
+static void finalize (GObject *gobj);
 
 static void
 gann_conv_layer_init (GannConvLayer *self)
@@ -71,6 +73,7 @@ gann_conv_layer_class_init (GannConvLayerClass *cls)
     lcls->attached = attached;
     gcls->set_property = set_property;
     gcls->get_property = get_property;
+    gcls->finalize = finalize;
 
     props[PROP_KERNEL_SIZE] =
         g_param_spec_int ("kernel-size",
@@ -111,6 +114,10 @@ attached (GannLayer *layer)
 
     self = GANN_CONV_LAYER (layer);
     network = gann_layer_get_network (layer);
+
+    g_message ("sized %d", self->filters);
+    self->filter_arr = g_ptr_array_new_with_free_func (g_object_unref);
+    g_ptr_array_set_size (self->filter_arr, self->filters);
 
     core = layer_make_conv (gann_network_get_core (network),
                             gann_conv_layer_get_kernel_size (self),
@@ -174,6 +181,16 @@ get_property (GObject *gobj,
     }
 }
 
+static void
+finalize (GObject *gobj)
+{
+    GannConvLayer *self = GANN_CONV_LAYER (gobj);
+
+    g_clear_pointer (&self->filter_arr, g_ptr_array_unref);
+
+    G_OBJECT_CLASS (gann_conv_layer_parent_class)->finalize (gobj);
+}
+
 GannConvLayer *
 gann_conv_layer_new (gint kernel_size,
                      gint stride,
@@ -189,6 +206,44 @@ gann_conv_layer_new (gint kernel_size,
                          "depth", filters,
                          "activation", activation,
                          NULL);
+}
+
+void
+gann_conv_layer_set_filter (GannConvLayer *self,
+                            gint index,
+                            GannConvFilter *filter)
+{
+    g_assert (gann_conv_filter_get_width (filter) == self->kernel_size);
+    g_assert (gann_conv_filter_get_height (filter) == self->kernel_size);
+    g_assert (gann_conv_filter_get_depth (filter) == self->filters);
+    g_assert (index < self->filters);
+
+    g_object_ref (filter);
+    g_ptr_array_insert (self->filter_arr, index, filter);
+}
+
+GannConvFilter *
+gann_conv_layer_get_filter (GannConvLayer *self,
+                            gint index)
+{
+    GannConvFilter *filter;
+
+    g_message ("get filter %d %d", self->filter_arr->len, self->filters);
+    g_assert (self->filter_arr->len == self->filters);
+    g_assert (index < self->filter_arr->len);
+
+    filter = g_ptr_array_index (self->filter_arr, index);
+
+    if (filter == NULL) {
+        filter = gann_conv_filter_new (self->kernel_size,
+                                       self->kernel_size,
+                                       self->filters);
+
+        gann_conv_layer_set_filter (self, index, filter);
+        g_object_unref (filter);
+    }
+
+    return filter;
 }
 
 gint
