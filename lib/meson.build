@@ -8,6 +8,7 @@ source = [
     'gann-output-layer.c',
     'gann-dense-layer.c',
     'gann-conv-layer.c',
+    'gann-conv-filter.c',
 ]
 
 public_header = [
@@ -18,6 +19,7 @@ public_header = [
     'gann-output-layer.h',
     'gann-dense-layer.h',
     'gann-conv-layer.h',
+    'gann-conv-filter.h',
 ]
 
 dependencies = [
