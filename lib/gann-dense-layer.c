@@ -32,7 +32,7 @@ struct _GannDenseLayer
 
 G_DEFINE_TYPE (GannDenseLayer, gann_dense_layer, GANN_TYPE_LAYER);
 
-static void constructed (GObject *gobj);
+static void attached (GannLayer *layer);
 
 static void
 gann_dense_layer_init (GannDenseLayer *self)
@@ -42,19 +42,17 @@ gann_dense_layer_init (GannDenseLayer *self)
 static void
 gann_dense_layer_class_init (GannDenseLayerClass *cls)
 {
-    GObjectClass *gcls = G_OBJECT_CLASS (cls);
+    GannLayerClass *lcls = GANN_LAYER_CLASS (cls);
 
-    gcls->constructed = constructed;
+    lcls->attached = attached;
 }
 
 static void
-constructed (GObject *gobj)
+attached (GannLayer *layer)
 {
-    GannLayer *layer;
     GannNetwork *network;
     struct layer *core;
 
-    layer = GANN_LAYER (gobj);
     network = gann_layer_get_network (layer);
 
     core = layer_make_dense (gann_network_get_core (network),
@@ -64,6 +62,18 @@ constructed (GObject *gobj)
                              gann_layer_get_activation (layer),
                              NULL);
     gann_layer_set_core (layer, core);
+}
 
-    G_OBJECT_CLASS (gann_dense_layer_parent_class)->constructed (gobj);
+GannDenseLayer *
+gann_dense_layer_new (gint width,
+                      gint height,
+                      gint depth,
+                      const gchar *activation)
+{
+    return g_object_new (GANN_TYPE_DENSE_LAYER,
+                         "width", width,
+                         "height", height,
+                         "depth", depth,
+                         "activation", activation,
+                         NULL);
 }

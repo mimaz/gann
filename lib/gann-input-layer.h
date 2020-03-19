@@ -31,6 +31,15 @@ G_DECLARE_FINAL_TYPE (GannInputLayer, gann_input_layer,
                       GANN, INPUT_LAYER, GannLayer);
 
 /**
+ * gann_input_layer_new:
+ *
+ * returns: (transfer full): New input layer instance
+ */
+GannInputLayer *gann_input_layer_new (gint width,
+                                      gint height,
+                                      gint depth);
+
+/**
  * gann_input_layer_set_data:
  * @data: (array length=datasize): float array
  */

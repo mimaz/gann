@@ -44,7 +44,7 @@ typedef struct {
     struct layer *l;
 } GannLayerPrivate;
 
-G_DEFINE_TYPE_WITH_PRIVATE (GannLayer, gann_layer, G_TYPE_OBJECT);
+G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (GannLayer, gann_layer, G_TYPE_OBJECT);
 
 enum
 {
@@ -65,6 +65,7 @@ static void set_property (GObject *gobj, guint propid,
                           const GValue *value, GParamSpec *spec);
 static void get_property (GObject *gobj, guint propid,
                           GValue *value, GParamSpec *spec);
+static void attached (GannLayer *self);
 
 static void
 gann_layer_init (GannLayer *self)
@@ -75,6 +76,8 @@ static void
 gann_layer_class_init (GannLayerClass *cls)
 {
     GObjectClass *gcls = G_OBJECT_CLASS (cls);
+
+    cls->attached = attached;
 
     gcls->dispose = dispose;
     gcls->constructed = constructed;
@@ -94,7 +97,7 @@ gann_layer_class_init (GannLayerClass *cls)
         g_param_spec_int ("width",
                           "Width",
                           "Layer width",
-                          0, G_MAXINT16, 0,
+                          -1, G_MAXINT16, 0,
                           G_PARAM_READWRITE |
                           G_PARAM_CONSTRUCT |
                           G_PARAM_STATIC_STRINGS);
@@ -102,7 +105,7 @@ gann_layer_class_init (GannLayerClass *cls)
         g_param_spec_int ("height",
                           "Height",
                           "Layer height",
-                          0, G_MAXINT16, 0,
+                          -1, G_MAXINT16, 0,
                           G_PARAM_READWRITE |
                           G_PARAM_CONSTRUCT |
                           G_PARAM_STATIC_STRINGS);
@@ -111,7 +114,7 @@ gann_layer_class_init (GannLayerClass *cls)
         g_param_spec_int ("depth",
                           "Depth",
                           "Layer depth",
-                          0, G_MAXINT16, 0,
+                          -1, G_MAXINT16, 0,
                           G_PARAM_READWRITE |
                           G_PARAM_CONSTRUCT |
                           G_PARAM_STATIC_STRINGS);
@@ -151,8 +154,6 @@ constructed (GObject *gobj)
     p->bytes_buff = NULL;
 
     G_OBJECT_CLASS (gann_layer_parent_class)->constructed (gobj);
-
-    g_assert_nonnull (p->l);
 }
 
 static void
@@ -226,6 +227,13 @@ get_property (GObject *gobj,
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (gobj, propid, spec);
     }
+}
+
+static void
+attached (GannLayer *self)
+{
+    (void) self;
+    g_error ("GannLayer::attached not implemented");
 }
 
 const gfloat *
@@ -322,59 +330,25 @@ gann_layer_get_core (GannLayer *self)
 }
 
 GannLayer *
-gann_layer_new_input (GannNetwork *network,
-                      gint width,
-                      gint height,
-                      gint depth)
+gann_layer_attach (GannLayer *self,
+                   GannNetwork *network)
 {
-    return g_object_new (GANN_TYPE_INPUT_LAYER,
-                         "network", network,
-                         "width", width,
-                         "height", height,
-                         "depth", depth,
-                         NULL);
-}
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+    GannLayerClass *cls;
 
-GannLayer *
-gann_layer_new_output (GannNetwork *network)
-{
-    return g_object_new (GANN_TYPE_OUTPUT_LAYER,
-                         "network", network,
-                         NULL);
-}
+    if (p->network != network) {
+        cls = GANN_LAYER_GET_CLASS (self);
 
-GannLayer *
-gann_layer_new_dense (GannNetwork *network,
-                      gint width,
-                      gint height,
-                      gint depth,
-                      const gchar *activation)
-{
-    return g_object_new (GANN_TYPE_DENSE_LAYER,
-                         "network", network,
-                         "width", width,
-                         "height", height,
-                         "depth", depth,
-                         "activation", activation,
-                         NULL);
-}
+        g_assert_null (p->network);
+        g_assert_nonnull (cls->attached);
 
-GannLayer *
-gann_layer_new_conv (GannNetwork *network,
-                     gint size,
-                     gint stride,
-                     gint filters,
-                     const gchar *activation)
-{
-    g_message ("conv %d", filters);
-    return g_object_new (GANN_TYPE_CONV_LAYER,
-                         "network", network,
-                         "size", size,
-                         "width", 1,
-                         "height", 1,
-                         "depth", filters,
-                         "filters", filters,
-                         "stride", stride,
-                         "activation", activation,
-                         NULL);
+        p->network = network;
+        g_object_notify_by_pspec (G_OBJECT (self),
+                                props[PROP_NETWORK]);
+
+        cls->attached (self);
+        g_assert_nonnull (p->l);
+    }
+
+    return self;
 }

@@ -36,47 +36,24 @@ G_DECLARE_DERIVABLE_TYPE (GannLayer, gann_layer,
 struct _GannLayerClass
 {
     GObjectClass parent_class;
+
+    /**
+     * attached:
+     *
+     * Called when attached to GannNetwork instance
+     */
+    void (*attached) (GannLayer *self);
 };
 
 /**
- * gann_layer_new_input:
+ * gann_layer_attach:
+ * @network: Network instance to attach. Network takes
+ *           Layer ownership after the call.
  *
- * returns: (transfer full): New layer instance
+ * returns: (transfer none): self
  */
-GannLayer *gann_layer_new_input (GannNetwork *network,
-                                 gint width,
-                                 gint height,
-                                 gint depth);
-
-/**
- * gann_layer_new_output:
- *
- * returns: (transfer full): New layer instance
- */
-GannLayer *gann_layer_new_output (GannNetwork *network);
-
-/**
- * gann_layer_new_dense:
- *
- * returns: (transfer full): New layer instance
- */
-GannLayer *gann_layer_new_dense (GannNetwork *network,
-                                 gint width,
-                                 gint height,
-                                 gint depth,
-                                 const gchar *activation);
-
-/**
- * gann_layer_new_conv:
- *
- * returns: (transfer full): New layer instance
- */
-GannLayer *gann_layer_new_conv (GannNetwork *network,
-                                gint size,
-                                gint stride,
-                                gint filters,
-                                const gchar *activation);
-
+GannLayer *gann_layer_attach (GannLayer *self,
+                              GannNetwork *network);
 
 /**
  * gann_layer_get_data:

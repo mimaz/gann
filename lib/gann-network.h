@@ -116,6 +116,14 @@ struct network *gann_network_get_core (GannNetwork *self);
  * returns: (transfer none): Pointer to context instance
  */
 GannContext *gann_network_get_context (GannNetwork *self);
+
+/**
+ * gann_network_attach_layer:
+ *
+ * Attaches layer to the network
+ */
+void gann_network_attach_layer (GannNetwork *self,
+                                GannLayer *layer);
 void gann_network_set_rate (GannNetwork *self,
                             gfloat rate);
 gfloat gann_network_get_rate (GannNetwork *self);

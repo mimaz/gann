@@ -30,7 +30,11 @@ G_BEGIN_DECLS
 G_DECLARE_FINAL_TYPE (GannConvLayer, gann_conv_layer,
                       GANN, CONV_LAYER, GannLayer);
 
-gint gann_conv_layer_get_size (GannConvLayer *self);
+GannConvLayer *gann_conv_layer_new (gint kernel_size,
+                                    gint stride,
+                                    gint filters,
+                                    const gchar *activation);
+gint gann_conv_layer_get_kernel_size (GannConvLayer *self);
 gint gann_conv_layer_get_stride (GannConvLayer *self);
 gint gann_conv_layer_get_filters (GannConvLayer *self);
 

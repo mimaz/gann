@@ -30,4 +30,14 @@ G_BEGIN_DECLS
 G_DECLARE_FINAL_TYPE (GannDenseLayer, gann_dense_layer,
                       GANN, DENSE_LAYER, GannLayer);
 
+/**
+ * gann_dense_layer_new:
+ *
+ * returns: (transfer full): New dense layer instance
+ */
+GannDenseLayer *gann_dense_layer_new (gint width,
+                                      gint height,
+                                      gint depth,
+                                      const gchar *activation);
+
 G_END_DECLS

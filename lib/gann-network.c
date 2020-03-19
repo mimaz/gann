@@ -246,41 +246,29 @@ gann_network_new (GannContext *context,
                          NULL);
 }
 
-static void
-insert_layer (GannNetwork *self,
-              GannLayer *layer)
-{
-    GannNetworkPrivate *p = gann_network_get_instance_private (self);
-
-    g_assert (GANN_IS_INPUT_LAYER (layer) || p->layer_arr->len > 0);
-    g_ptr_array_insert (p->layer_arr, -1, layer);
-    g_object_notify_by_pspec (G_OBJECT (self),
-                              props[PROP_LAYER_COUNT]);
-}
-
 GannInputLayer *
 gann_network_create_input (GannNetwork *self,
                            gint width,
                            gint height,
                            gint depth)
 {
-    GannLayer *layer;
+    GannInputLayer *input;
 
-    layer = gann_layer_new_input (self, width, height, depth);
-    insert_layer (self, layer);
+    input = gann_input_layer_new (width, height, depth);
+    gann_network_attach_layer (self, GANN_LAYER (input));
 
-    return GANN_INPUT_LAYER (layer);
+    return input;
 }
 
 GannOutputLayer *
 gann_network_create_output (GannNetwork *self)
 {
-    GannLayer *layer;
+    GannOutputLayer *output;
 
-    layer = gann_layer_new_output (self);
-    insert_layer (self, layer);
+    output = gann_output_layer_new ();
+    gann_network_attach_layer (self, GANN_LAYER (output));
 
-    return GANN_OUTPUT_LAYER (layer);
+    return output;
 }
 
 GannDenseLayer *
@@ -290,12 +278,12 @@ gann_network_create_dense (GannNetwork *self,
                            gint depth,
                            const gchar *activation)
 {
-    GannLayer *layer;
+    GannDenseLayer *dense;
 
-    layer = gann_layer_new_dense (self, width, height, depth, activation);
-    insert_layer (self, layer);
+    dense = gann_dense_layer_new (width, height, depth, activation);
+    gann_network_attach_layer (self, GANN_LAYER (dense));
 
-    return GANN_DENSE_LAYER (layer);
+    return dense;
 }
 
 GannConvLayer *
@@ -305,12 +293,12 @@ gann_network_create_conv (GannNetwork *self,
                           gint filters,
                           const gchar *activation)
 {
-    GannLayer *layer;
+    GannConvLayer *conv;
 
-    layer = gann_layer_new_conv (self, size, stride, filters, activation);
-    insert_layer (self, layer);
+    conv = gann_conv_layer_new (size, stride, filters, activation);
+    gann_network_attach_layer (self, GANN_LAYER (conv));
 
-    return GANN_CONV_LAYER (layer);
+    return conv;
 }
 
 void
@@ -365,6 +353,21 @@ gann_network_get_context (GannNetwork *self)
     GannNetworkPrivate *p = gann_network_get_instance_private (self);
 
     return p->context;
+}
+
+void
+gann_network_attach_layer (GannNetwork *self,
+                           GannLayer *layer)
+{
+    GannNetworkPrivate *p = gann_network_get_instance_private (self);
+
+    g_assert_null (gann_layer_get_network (layer));
+    gann_layer_attach (layer, self);
+
+    g_object_ref (layer);
+    g_ptr_array_insert (p->layer_arr, -1, layer);
+    g_object_notify_by_pspec (G_OBJECT (self),
+                              props[PROP_LAYER_COUNT]);
 }
 
 void
