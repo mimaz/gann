@@ -22,7 +22,6 @@
 #include "gann-output-layer.h"
 
 #include "gann-network.h"
-#include "gann-layer-private.h"
 
 #include "core/layer.h"
 
@@ -33,7 +32,7 @@ struct _GannOutputLayer
 
 G_DEFINE_TYPE (GannOutputLayer, gann_output_layer, GANN_TYPE_LAYER);
 
-static void attached (GannLayer *layer);
+static void constructed (GObject *gobj);
 
 static void
 gann_output_layer_init (GannOutputLayer *self)
@@ -43,17 +42,19 @@ gann_output_layer_init (GannOutputLayer *self)
 static void
 gann_output_layer_class_init (GannOutputLayerClass *cls)
 {
-    GannLayerClass *lcls = GANN_LAYER_CLASS (cls);
+    GObjectClass *gcls = G_OBJECT_CLASS (cls);
 
-    lcls->attached = attached;
+    gcls->constructed = constructed;
 }
 
 static void
-attached (GannLayer *layer)
+constructed (GObject *gobj)
 {
+    GannLayer *layer;
     GannNetwork *network;
     struct layer *core;
 
+    layer = GANN_LAYER (gobj);
     network = gann_layer_get_network (layer);
 
     g_assert (gann_layer_get_width (layer) == 0);
@@ -71,9 +72,10 @@ attached (GannLayer *layer)
 }
 
 GannOutputLayer *
-gann_output_layer_new ()
+gann_output_layer_new (GannNetwork *network)
 {
     return g_object_new (GANN_TYPE_OUTPUT_LAYER,
+                         "network", network,
                          NULL);
 }
 

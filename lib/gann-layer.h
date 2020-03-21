@@ -38,63 +38,31 @@ struct _GannLayerClass
     GObjectClass parent_class;
 
     /**
-     * attached:
+     * compile:
      *
-     * Called when attached to GannNetwork instance
+     * Compile the layer
      */
-    void (*attached) (GannLayer *self);
+    void (*compile) (GannLayer *self);
 };
 
-/**
- * gann_layer_attach:
- * @network: Network instance to attach. Network takes
- *           Layer ownership after the call.
- *
- * returns: (transfer none): self
- */
-GannLayer *gann_layer_attach (GannLayer *self,
-                              GannNetwork *network);
-
-/**
- * gann_layer_get_data:
- * @size: return array's size
- *
- * returns: (array length=size) (transfer none): Pointer to layer's data
- */
+void gann_layer_compile (GannLayer *self);
+GannLayer *gann_layer_append (GannLayer *self,
+                              GannLayer *next);
+GannLayer *gann_layer_prepend (GannLayer *self,
+                               GannLayer *prev);
+GSList *gann_layer_next_list (GannLayer *self);
+GSList *gann_layer_prev_list (GannLayer *self);
 const gfloat *gann_layer_get_data (GannLayer *self,
                                    gsize *size);
-
-/**
- * gann_layer_get_data_bytes:
- * 
- * returns: (array length=size) (transfer none): pointer to layer's data
- * converted to bytes
- */
 const guint8 *gann_layer_get_data_bytes (GannLayer *self,
                                          gsize *size);
-
-/**
- * gann_layer_get_core:
- *
- * returns: (transfer none): Pointer to underlying core structure
- */
-struct layer *gann_layer_get_core (GannLayer *self);
-
-/**
- * gann_layer_get_network:
- *
- * returns: (transfer none): Pointer to network instance
- */
 GannNetwork *gann_layer_get_network (GannLayer *self);
 gint gann_layer_get_width (GannLayer *self);
 gint gann_layer_get_height (GannLayer *self);
 gint gann_layer_get_depth (GannLayer *self);
-
-/**
- * gann_layer_get_activation:
- *
- * returns: (transfer none): Name of activation function
- */
 const gchar *gann_layer_get_activation (GannLayer *self);
+void gann_layer_set_core (GannLayer *self,
+                          struct layer *core);
+struct layer *gann_layer_get_core (GannLayer *self);
 
 G_END_DECLS

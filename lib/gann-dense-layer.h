@@ -35,7 +35,8 @@ G_DECLARE_FINAL_TYPE (GannDenseLayer, gann_dense_layer,
  *
  * returns: (transfer full): New dense layer instance
  */
-GannDenseLayer *gann_dense_layer_new (gint width,
+GannDenseLayer *gann_dense_layer_new (GannNetwork *network,
+                                      gint width,
                                       gint height,
                                       gint depth,
                                       const gchar *activation);

@@ -162,6 +162,20 @@ struct layer *layer_make_input (struct network *net,
 struct layer *layer_make_output (struct network *net);
 
 /*
+ * layer_append
+ * Appends another layer in front
+ */
+void layer_append (struct layer *lay,
+                   struct layer *other);
+
+/*
+ * layer_prepend
+ * Prepends another layer back
+ */
+void layer_prepend (struct layer *lay,
+                    struct layer *other);
+
+/*
  * layer_compile
  * Compiles the layer if it wasn't compiled yet. Does
  * nothing otherwise

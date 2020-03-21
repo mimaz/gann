@@ -35,7 +35,8 @@ G_DECLARE_FINAL_TYPE (GannInputLayer, gann_input_layer,
  *
  * returns: (transfer full): New input layer instance
  */
-GannInputLayer *gann_input_layer_new (gint width,
+GannInputLayer *gann_input_layer_new (GannNetwork *network,
+                                      gint width,
                                       gint height,
                                       gint depth);
 

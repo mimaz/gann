@@ -21,7 +21,6 @@
 
 #include "gann-network.h"
 
-#include "gann-layer-private.h"
 #include "gann-input-layer.h"
 #include "gann-output-layer.h"
 #include "gann-dense-layer.h"
@@ -234,6 +233,11 @@ get_property (GObject *gobj,
     }
 }
 
+/**
+ * gann_network_new:
+ *
+ * returns: (transfer full): New network instance
+ */
 GannNetwork *
 gann_network_new (GannContext *context,
                   gfloat rate, gfloat momentum, gfloat decay)
@@ -246,6 +250,24 @@ gann_network_new (GannContext *context,
                          NULL);
 }
 
+static void
+append_to_last (GannNetwork *self,
+                GannLayer *layer)
+{
+    GannLayer *last;
+
+    last = gann_network_last_layer (self);
+
+    if (last != NULL) {
+        gann_layer_append (last, layer);
+    }
+}
+
+/**
+ * gann_network_create_input:
+ *
+ * returns: (transfer none): New input layer instance
+ */
 GannInputLayer *
 gann_network_create_input (GannNetwork *self,
                            gint width,
@@ -254,23 +276,33 @@ gann_network_create_input (GannNetwork *self,
 {
     GannInputLayer *input;
 
-    input = gann_input_layer_new (width, height, depth);
-    gann_network_attach_layer (self, GANN_LAYER (input));
+    input = gann_input_layer_new (self, width, height, depth);
+    append_to_last (self, GANN_LAYER (input));
 
     return input;
 }
 
+/**
+ * gann_network_create_output:
+ *
+ * returns: (transfer none): New output layer instance
+ */
 GannOutputLayer *
 gann_network_create_output (GannNetwork *self)
 {
     GannOutputLayer *output;
 
-    output = gann_output_layer_new ();
-    gann_network_attach_layer (self, GANN_LAYER (output));
+    output = gann_output_layer_new (self);
+    append_to_last (self, GANN_LAYER (output));
 
     return output;
 }
 
+/**
+ * gann_network_create_dense:
+ *
+ * returns: (transfer none): New dense layer instance
+ */
 GannDenseLayer *
 gann_network_create_dense (GannNetwork *self,
                            gint width,
@@ -280,12 +312,17 @@ gann_network_create_dense (GannNetwork *self,
 {
     GannDenseLayer *dense;
 
-    dense = gann_dense_layer_new (width, height, depth, activation);
-    gann_network_attach_layer (self, GANN_LAYER (dense));
+    dense = gann_dense_layer_new (self, width, height, depth, activation);
+    append_to_last (self, GANN_LAYER (dense));
 
     return dense;
 }
 
+/**
+ * gann_network_create_conv:
+ *
+ * returns: (transfer none): New conv layer instance
+ */
 GannConvLayer *
 gann_network_create_conv (GannNetwork *self,
                           gint size,
@@ -295,8 +332,8 @@ gann_network_create_conv (GannNetwork *self,
 {
     GannConvLayer *conv;
 
-    conv = gann_conv_layer_new (size, stride, filters, activation);
-    gann_network_attach_layer (self, GANN_LAYER (conv));
+    conv = gann_conv_layer_new (self, size, stride, filters, activation);
+    append_to_last (self, GANN_LAYER (conv));
 
     return conv;
 }
@@ -329,9 +366,24 @@ gann_network_backward (GannNetwork *self)
                               props[PROP_AVERAGE_LOSS]);
 }
 
+void
+gann_network_attach_layer (GannNetwork *self,
+                           GannLayer *layer)
+{
+    GannNetworkPrivate *p = gann_network_get_instance_private (self);
+
+    g_assert (g_ptr_array_find (p->layer_arr, layer, NULL) == FALSE);
+    g_ptr_array_insert (p->layer_arr, -1, layer);
+}
+
+/**
+ * gann_network_get_layer:
+ *
+ * returns: (transfer none): Pointer to layer at index @index
+ */
 GannLayer *
-gann_network_get_layer (GannNetwork *self,
-                        gint index)
+gann_network_layer (GannNetwork *self,
+                    gint index)
 {
     GannNetworkPrivate *p = gann_network_get_instance_private (self);
 
@@ -339,6 +391,27 @@ gann_network_get_layer (GannNetwork *self,
     return g_ptr_array_index (p->layer_arr, index);
 }
 
+/**
+ * gann_network_last_layer:
+ *
+ * returns: (transfer none): Lastly added layer
+ */
+GannLayer *
+gann_network_last_layer (GannNetwork *self)
+{
+    GannNetworkPrivate *p = gann_network_get_instance_private (self);
+
+    if (p->layer_arr->len > 0)
+        return p->layer_arr->pdata[p->layer_arr->len - 1];
+
+    return NULL;
+}
+
+/**
+ * gann_network_get_core:
+ *
+ * returns: (transfer none): Pointer to underlying core structure
+ */
 struct network *
 gann_network_get_core (GannNetwork *self)
 {
@@ -347,27 +420,17 @@ gann_network_get_core (GannNetwork *self)
     return p->net;
 }
 
+/**
+ * gann_network_get_context:
+ *
+ * returns: (transfer none): Pointer to context instance
+ */
 GannContext *
 gann_network_get_context (GannNetwork *self)
 {
     GannNetworkPrivate *p = gann_network_get_instance_private (self);
 
     return p->context;
-}
-
-void
-gann_network_attach_layer (GannNetwork *self,
-                           GannLayer *layer)
-{
-    GannNetworkPrivate *p = gann_network_get_instance_private (self);
-
-    g_assert_null (gann_layer_get_network (layer));
-    gann_layer_attach (layer, self);
-
-    g_object_ref (layer);
-    g_ptr_array_insert (p->layer_arr, -1, layer);
-    g_object_notify_by_pspec (G_OBJECT (self),
-                              props[PROP_LAYER_COUNT]);
 }
 
 void

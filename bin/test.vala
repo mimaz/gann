@@ -27,6 +27,7 @@ int main (string[] args)
         conv_test ();
         // dense_test ();
     } catch (Error error) {
+        message ("error");
         return 1;
     }
     return 0;

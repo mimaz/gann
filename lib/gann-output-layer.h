@@ -35,7 +35,7 @@ G_DECLARE_FINAL_TYPE (GannOutputLayer, gann_output_layer,
  *
  * returns: (transfer full): New layer instance
  */
-GannOutputLayer *gann_output_layer_new ();
+GannOutputLayer *gann_output_layer_new (GannNetwork *network);
 
 
 /**

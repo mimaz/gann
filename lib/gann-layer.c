@@ -21,7 +21,6 @@
 
 #include "gann-layer.h"
 
-#include "gann-layer-private.h"
 #include "gann-input-layer.h"
 #include "gann-output-layer.h"
 #include "gann-dense-layer.h"
@@ -40,6 +39,9 @@ typedef struct {
 
     gfloat *value_buff;
     guint8 *bytes_buff;
+
+    GSList *prev_list;
+    GSList *next_list;
 
     struct layer *l;
 } GannLayerPrivate;
@@ -65,7 +67,7 @@ static void set_property (GObject *gobj, guint propid,
                           const GValue *value, GParamSpec *spec);
 static void get_property (GObject *gobj, guint propid,
                           GValue *value, GParamSpec *spec);
-static void attached (GannLayer *self);
+static void compile (GannLayer *self);
 
 static void
 gann_layer_init (GannLayer *self)
@@ -77,12 +79,12 @@ gann_layer_class_init (GannLayerClass *cls)
 {
     GObjectClass *gcls = G_OBJECT_CLASS (cls);
 
-    cls->attached = attached;
-
     gcls->dispose = dispose;
     gcls->constructed = constructed;
     gcls->set_property = set_property;
     gcls->get_property = get_property;
+
+    cls->compile = compile;
 
     props[PROP_NETWORK] =
         g_param_spec_object ("network",
@@ -123,7 +125,7 @@ gann_layer_class_init (GannLayerClass *cls)
         g_param_spec_string ("activation",
                              "Activation",
                              "Layer activation",
-                             "sigmoid",
+                             "linear",
                              G_PARAM_READWRITE |
                              G_PARAM_CONSTRUCT_ONLY |
                              G_PARAM_STATIC_STRINGS);
@@ -150,8 +152,13 @@ constructed (GObject *gobj)
     GannLayer *self = GANN_LAYER (gobj);
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
 
+    g_assert_nonnull (p->network);
+    gann_network_attach_layer (p->network, self);
+
     p->value_buff = NULL;
     p->bytes_buff = NULL;
+    p->next_list = NULL;
+    p->prev_list = NULL;
 
     G_OBJECT_CLASS (gann_layer_parent_class)->constructed (gobj);
 }
@@ -230,12 +237,102 @@ get_property (GObject *gobj,
 }
 
 static void
-attached (GannLayer *self)
+compile (GannLayer *self)
 {
-    (void) self;
-    g_error ("GannLayer::attached not implemented");
+    g_message ("Gann::Layer::compile");
 }
 
+/**
+ * gann_layer_compile: (virtual compile)
+ *
+ * Compiles the layer
+ */
+void
+gann_layer_compile (GannLayer *self)
+{
+    GANN_LAYER_GET_CLASS (self)->compile (self);
+}
+
+/**
+ * gann_layer_append:
+ * @next: next layer to append
+ *
+ * Appends new layer in front
+ *
+ * returns: (transfer none): self
+ */
+GannLayer *
+gann_layer_append (GannLayer *self,
+                   GannLayer *next)
+{
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+
+    if (g_slist_find (p->next_list, next) == NULL) {
+        p->next_list = g_slist_prepend (p->next_list, next);
+        layer_append (gann_layer_get_core (self),
+                    gann_layer_get_core (next));
+        gann_layer_prepend (next, self);
+    }
+
+    return self;
+}
+
+/**
+ * gann_layer_prepend
+ * @prev: previous layer to prepend
+ *
+ * Prepends new layer in back
+ *
+ * returns: (transfer none): self
+ */
+GannLayer *
+gann_layer_prepend (GannLayer *self,
+                    GannLayer *prev)
+{
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+
+    if (g_slist_find (p->prev_list, prev) == NULL) {
+        p->prev_list = g_slist_prepend (p->prev_list, prev);
+        layer_prepend (gann_layer_get_core (self),
+                    gann_layer_get_core (prev));
+        gann_layer_append (prev, self);
+    }
+
+    return self;
+}
+
+/**
+ * gann_layer_next_list:
+ * 
+ * returns: (transfer none) (element-type GannLayer): next layers list
+ */
+GSList *
+gann_layer_next_list (GannLayer *self)
+{
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+
+    return p->next_list;
+}
+
+/**
+ * gann_layer_prev_list:
+ *
+ * returns: (transfer none) (element-type GannLayer): prev layers list
+ */
+GSList *
+gann_layer_prev_list (GannLayer *self)
+{
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+
+    return p->prev_list;
+}
+
+/**
+ * gann_layer_get_data:
+ * @size: return array's size
+ *
+ * returns: (array length=size) (transfer none): Pointer to layer's data
+ */
 const gfloat *
 gann_layer_get_data (GannLayer *self,
                      gsize *size)
@@ -255,6 +352,12 @@ gann_layer_get_data (GannLayer *self,
     return p->value_buff;
 }
 
+/**
+ * gann_layer_get_data_bytes:
+ * 
+ * returns: (array length=size) (transfer none): pointer to layer's data
+ * converted to bytes
+ */
 const guint8 *
 gann_layer_get_data_bytes (GannLayer *self,
                            gsize *size)
@@ -276,6 +379,11 @@ gann_layer_get_data_bytes (GannLayer *self,
     return p->bytes_buff;
 }
 
+/**
+ * gann_layer_get_network:
+ *
+ * returns: (transfer none): Pointer to network instance
+ */
 GannNetwork *
 gann_layer_get_network (GannLayer *self)
 {
@@ -283,6 +391,11 @@ gann_layer_get_network (GannLayer *self)
     return p->network;
 }
 
+/**
+ * gann_layer_get_width:
+ *
+ * returns: network width
+ */
 gint
 gann_layer_get_width (GannLayer *self)
 {
@@ -290,6 +403,11 @@ gann_layer_get_width (GannLayer *self)
     return p->width;
 }
 
+/**
+ * gann_layer_get_height:
+ *
+ * returns: network height
+ */
 gint
 gann_layer_get_height (GannLayer *self)
 {
@@ -297,6 +415,11 @@ gann_layer_get_height (GannLayer *self)
     return p->height;
 }
 
+/**
+ * gann_layer_get_depth:
+ *
+ * returns: network depth
+ */
 gint
 gann_layer_get_depth (GannLayer *self)
 {
@@ -304,6 +427,11 @@ gann_layer_get_depth (GannLayer *self)
     return p->depth;
 }
 
+/**
+ * gann_layer_get_activation:
+ *
+ * returns: (transfer none): Name of activation function
+ */
 const gchar *
 gann_layer_get_activation (GannLayer *self)
 {
@@ -311,8 +439,9 @@ gann_layer_get_activation (GannLayer *self)
     return p->activation;
 }
 
-/* PRIVATE */
-
+/**
+ * gann_layer_set_core: (skip)
+ */
 void
 gann_layer_set_core (GannLayer *self,
                      struct layer *core)
@@ -322,33 +451,12 @@ gann_layer_set_core (GannLayer *self,
     p->l = core;
 }
 
+/**
+ * gann_layer_get_core: (skip)
+ */
 struct layer *
 gann_layer_get_core (GannLayer *self)
 {
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
     return p->l;
-}
-
-GannLayer *
-gann_layer_attach (GannLayer *self,
-                   GannNetwork *network)
-{
-    GannLayerPrivate *p = gann_layer_get_instance_private (self);
-    GannLayerClass *cls;
-
-    if (p->network != network) {
-        cls = GANN_LAYER_GET_CLASS (self);
-
-        g_assert_null (p->network);
-        g_assert_nonnull (cls->attached);
-
-        p->network = network;
-        g_object_notify_by_pspec (G_OBJECT (self),
-                                props[PROP_NETWORK]);
-
-        cls->attached (self);
-        g_assert_nonnull (p->l);
-    }
-
-    return self;
 }

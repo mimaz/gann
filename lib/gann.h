@@ -26,5 +26,4 @@
 #include "gann-output-layer.h"
 #include "gann-dense-layer.h"
 #include "gann-conv-layer.h"
-#include "gann-conv-filter.h"
 #include "gann-context.h"

@@ -25,6 +25,28 @@
 #include <math.h>
 
 void
+layer_append (struct layer *lay,
+              struct layer *other)
+{
+    if (lay->next != other) {
+        g_assert_null (lay->next);
+        lay->next = other;
+        layer_prepend (other, lay);
+    }
+}
+
+void
+layer_prepend (struct layer *lay,
+               struct layer *other)
+{
+    if (lay->prev != other) {
+        g_assert_null (lay->prev);
+        lay->prev = other;
+        layer_append (other, lay);
+    }
+}
+
+void
 layer_compile (struct layer *lay)
 {
     if ((lay->flags & LAYER_FLAG_COMPILED) == 0) {

@@ -43,87 +43,34 @@ struct _GannNetworkClass
     GObjectClass parent_class;
 };
 
-/**
- * gann_network_new:
- *
- * returns: (transfer full): New network instance
- */
 GannNetwork *gann_network_new (GannContext *context,
                                gfloat rate,
                                gfloat momentum,
                                gfloat decay);
-
-/**
- * gann_network_create_input:
- *
- * returns: (transfer none): New input layer instance
- */
 GannInputLayer *gann_network_create_input (GannNetwork *self,
                                            gint width,
                                            gint height,
                                            gint depth);
-
-/**
- * gann_network_create_output:
- *
- * returns: (transfer none): New output layer instance
- */
 GannOutputLayer *gann_network_create_output (GannNetwork *self);
-
-/**
- * gann_network_create_dense:
- *
- * returns: (transfer none): New dense layer instance
- */
 GannDenseLayer *gann_network_create_dense (GannNetwork *self,
                                            gint width,
                                            gint height,
                                            gint depth,
                                            const gchar *activation);
-
-/**
- * gann_network_create_conv:
- *
- * returns: (transfer none): New conv layer instance
- */
 GannConvLayer *gann_network_create_conv (GannNetwork *self,
                                          gint size,
                                          gint stride,
                                          gint filters,
                                          const gchar *activation);
-
 void gann_network_forward (GannNetwork *self);
 void gann_network_backward (GannNetwork *self);
-
-/**
- * gann_network_get_layer:
- *
- * returns: (transfer none): Pointer to layer at index @index
- */
-GannLayer *gann_network_get_layer (GannNetwork *self,
-                                   gint index);
-
-/**
- * gann_network_get_core:
- *
- * returns: (transfer none): Pointer to underlying core structure
- */
-struct network *gann_network_get_core (GannNetwork *self);
-
-/**
- * gann_network_get_context:
- *
- * returns: (transfer none): Pointer to context instance
- */
-GannContext *gann_network_get_context (GannNetwork *self);
-
-/**
- * gann_network_attach_layer:
- *
- * Attaches layer to the network
- */
 void gann_network_attach_layer (GannNetwork *self,
                                 GannLayer *layer);
+GannLayer *gann_network_get_layer (GannNetwork *self,
+                                   gint index);
+GannLayer *gann_network_last_layer (GannNetwork *self);
+struct network *gann_network_get_core (GannNetwork *self);
+GannContext *gann_network_get_context (GannNetwork *self);
 void gann_network_set_rate (GannNetwork *self,
                             gfloat rate);
 gfloat gann_network_get_rate (GannNetwork *self);

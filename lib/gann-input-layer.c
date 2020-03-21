@@ -21,7 +21,6 @@
 
 #include "gann-input-layer.h"
 #include "gann-network.h"
-#include "gann-layer-private.h"
 
 #include "core/core.h"
 
@@ -34,7 +33,7 @@ G_DEFINE_TYPE (GannInputLayer, gann_input_layer,
                GANN_TYPE_LAYER);
 
 static void dispose (GObject *gobj);
-static void attached (GannLayer *layer);
+static void constructed (GObject *gobj);
 
 static void
 gann_input_layer_init (GannInputLayer *self)
@@ -45,10 +44,9 @@ static void
 gann_input_layer_class_init (GannInputLayerClass *cls)
 {
     GObjectClass *gcls = G_OBJECT_CLASS (cls);
-    GannLayerClass *lcls = GANN_LAYER_CLASS (cls);
 
     gcls->dispose = dispose;
-    lcls->attached = attached;
+    gcls->constructed = constructed;
 }
 
 static void
@@ -59,13 +57,14 @@ dispose (GObject *gobj)
 }
 
 static void
-attached (GannLayer *layer)
+constructed (GObject *gobj)
 {
     GannNetwork *network;
+    GannLayer *layer;
     gint width, height, depth;
     struct layer *core;
 
-    g_message ("input attached");
+    layer = GANN_LAYER (gobj);
     network = gann_layer_get_network (layer);
 
     width = gann_layer_get_width (layer);
@@ -78,11 +77,13 @@ attached (GannLayer *layer)
 }
 
 GannInputLayer *
-gann_input_layer_new (gint width,
+gann_input_layer_new (GannNetwork *network,
+                      gint width,
                       gint height,
                       gint depth)
 {
     return g_object_new (GANN_TYPE_INPUT_LAYER,
+                         "network", network,
                          "width", width,
                          "height", height,
                          "depth", depth,
