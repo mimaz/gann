@@ -30,19 +30,21 @@ __constant float *input_channel (__constant float *input_v,
         return zero_v;
     }
 
-    off = y * HEIGHT * DEPTH + x * DEPTH;
+    off = y * INPUT_HEIGHT * INPUT_DEPTH + x * INPUT_DEPTH;
 
     return input_v + off;
 }
 
 __constant float *filter_channel (__constant float *kernel_v,
-                                  const int y,
                                   const int x,
+                                  const int y,
                                   const int z)
 {
     __private int off;
 
-    off = z * SIZE * SIZE * DEPTH + y * SIZE * DEPTH + x * DEPTH;
+    off = z * KERNEL_WIDTH * KERNEL_HEIGHT * INPUT_DEPTH
+        + y * KERNEL_WIDTH * INPUT_DEPTH
+        + x * INPUT_DEPTH;
 
     return kernel_v + off;
 }
@@ -63,23 +65,21 @@ __kernel void forward (__constant float *input_v,
 
     sum = 0;
 
-    for (yk = 0; yk < SIZE; yk++) {
-        for (xk = 0; xk < SIZE; xk++) {
+    for (yk = 0; yk < KERNEL_HEIGHT; yk++) {
+        for (xk = 0; xk < KERNEL_WIDTH; xk++) {
             xvector = input_channel (input_v, zero_v,
-                                     y + yk - YKSHIFT,
-                                     x + xk - XKSHIFT);
+                                     y + yk + KERNEL_Y_SHIFT,
+                                     x + xk + KERNEL_X_SHIFT);
             kvector = filter_channel (kernel_v,
-                                      y, x, z);
+                                      xk, yk, z);
 
             for (d = 0; d < DEPTH; d++) {
-                /* sum += xvector[d] * kvector[d]; */
-                sum += xvector[d] * 1.0f / (SIZE * SIZE * DEPTH);
+                sum += xvector[d] * kvector[d];
             }
         }
     }
 
-    id = y * HEIGHT * FILTERS + x * FILTERS + z;
+    id = y * HEIGHT * DEPTH + x * DEPTH + z;
 
-    /* output_v[id] = input_v[id]; */
     output_v[id] = sum;
 }
