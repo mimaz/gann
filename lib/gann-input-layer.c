@@ -74,6 +74,8 @@ constructed (GObject *gobj)
     core = layer_make_input (gann_network_get_core (network),
                              width, height, depth);
     gann_layer_set_core (layer, core);
+
+    G_OBJECT_CLASS (gann_input_layer_parent_class)->constructed (gobj);
 }
 
 GannInputLayer *

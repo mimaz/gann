@@ -60,8 +60,7 @@ constructed (GObject *gobj)
                              gann_layer_get_width (layer),
                              gann_layer_get_height (layer),
                              gann_layer_get_depth (layer),
-                             gann_layer_get_activation (layer),
-                             NULL);
+                             gann_layer_get_activation (layer));
     gann_layer_set_core (layer, core);
 }
 

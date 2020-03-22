@@ -28,9 +28,13 @@ struct _GannConvLayer
 {
     GannLayer parent_instance;
 
-    gint kernel_size;
-    gint stride;
-    gint filters;
+    gint kernel_width;
+    gint kernel_height;
+    gint kernel_stride;
+
+    gint xshift;
+    gint yshift;
+
     gfloat *filterdata;
     gsize filtersize;
 };
@@ -40,9 +44,9 @@ G_DEFINE_TYPE (GannConvLayer, gann_conv_layer, GANN_TYPE_LAYER);
 enum
 {
     PROP_0,
-    PROP_KERNEL_SIZE,
-    PROP_STRIDE,
-    PROP_FILTERS,
+    PROP_KERNEL_WIDTH,
+    PROP_KERNEL_HEIGHT,
+    PROP_KERNEL_STRIDE,
     N_PROPS,
 };
 
@@ -54,19 +58,17 @@ static void get_property (GObject *gobj, guint propid,
                           GValue *value, GParamSpec *spec);
 static void finalize (GObject *gobj);
 static void constructed (GObject *gobj);
+static void compile (GannLayer *layer);
 
 static void
 gann_conv_layer_init (GannConvLayer *self)
 {
-    g_object_bind_property (self, "depth",
-                            self, "filters",
-                            G_BINDING_BIDIRECTIONAL |
-                            G_BINDING_SYNC_CREATE);
 }
 
 static void
 gann_conv_layer_class_init (GannConvLayerClass *cls)
 {
+    GannLayerClass *lcls = GANN_LAYER_CLASS (cls);
     GObjectClass *gcls = G_OBJECT_CLASS (cls);
 
     gcls->set_property = set_property;
@@ -74,31 +76,33 @@ gann_conv_layer_class_init (GannConvLayerClass *cls)
     gcls->finalize = finalize;
     gcls->constructed = constructed;
 
-    props[PROP_KERNEL_SIZE] =
-        g_param_spec_int ("kernel-size",
-                          "Kernel size",
-                          "Kernel size",
-                          1, G_MAXINT32, 3,
+    lcls->compile = compile;
+
+    props[PROP_KERNEL_WIDTH] =
+        g_param_spec_int ("kernel-width",
+                          "Kernel width",
+                          "Kernel width",
+                          1, G_MAXINT32, 1,
                           G_PARAM_READWRITE |
                           G_PARAM_CONSTRUCT_ONLY |
                           G_PARAM_STATIC_STRINGS);
 
-    props[PROP_STRIDE] =
-        g_param_spec_int ("stride",
-                          "Stride",
+    props[PROP_KERNEL_HEIGHT] =
+        g_param_spec_int ("kernel-height",
+                          "Kernel height",
+                          "Kernel height",
+                          1, G_MAXINT32, 1,
+                          G_PARAM_READWRITE |
+                          G_PARAM_CONSTRUCT_ONLY |
+                          G_PARAM_STATIC_STRINGS);
+
+    props[PROP_KERNEL_STRIDE] =
+        g_param_spec_int ("kernel-stride",
+                          "Kernel stride",
                           "Kernel stride",
                           1, G_MAXINT32, 1,
                           G_PARAM_READWRITE |
                           G_PARAM_CONSTRUCT_ONLY |
-                          G_PARAM_STATIC_STRINGS);
-
-    props[PROP_FILTERS] =
-        g_param_spec_int ("filters",
-                          "Filters",
-                          "Number of filters",
-                          1, G_MAXINT32, 1,
-                          G_PARAM_READWRITE |
-                          G_PARAM_CONSTRUCT |
                           G_PARAM_STATIC_STRINGS);
 
     g_object_class_install_properties (gcls, N_PROPS, props);
@@ -113,16 +117,16 @@ set_property (GObject *gobj,
     GannConvLayer *self = GANN_CONV_LAYER (gobj);
 
     switch (propid) {
-    case PROP_KERNEL_SIZE:
-        self->kernel_size = g_value_get_int (value);
+    case PROP_KERNEL_WIDTH:
+        self->kernel_width = g_value_get_int (value);
         break;
 
-    case PROP_STRIDE:
-        self->stride = g_value_get_int (value);
+    case PROP_KERNEL_HEIGHT:
+        self->kernel_height = g_value_get_int (value);
         break;
 
-    case PROP_FILTERS:
-        self->filters = g_value_get_int (value);
+    case PROP_KERNEL_STRIDE:
+        self->kernel_stride = g_value_get_int (value);
         break;
 
     default:
@@ -139,16 +143,16 @@ get_property (GObject *gobj,
     GannConvLayer *self = GANN_CONV_LAYER (gobj);
 
     switch (propid) {
-    case PROP_KERNEL_SIZE:
-        g_value_set_int (value, self->kernel_size);
+    case PROP_KERNEL_WIDTH:
+        g_value_set_int (value, self->kernel_width);
         break;
 
-    case PROP_STRIDE:
-        g_value_set_int (value, self->stride);
+    case PROP_KERNEL_HEIGHT:
+        g_value_set_int (value, self->kernel_height);
         break;
 
-    case PROP_FILTERS:
-        g_value_set_int (value, self->filters);
+    case PROP_KERNEL_STRIDE:
+        g_value_set_int (value, self->kernel_stride);
         break;
 
     default:
@@ -170,25 +174,50 @@ constructed (GObject *gobj)
     GannNetwork *network;
     struct layer *core;
 
+    g_message ("constructed conv %p", gobj);
+
     layer = GANN_LAYER (gobj);
     self = GANN_CONV_LAYER (gobj);
     network = gann_layer_get_network (layer);
 
-    self->filtersize = self->kernel_size * self->kernel_size
-                     * gann_layer_get_depth (layer)
-                     * self->filters;
-    self->filterdata = g_new (gfloat, self->filtersize);
-
     core = layer_make_conv (gann_network_get_core (network),
-                            self->kernel_size,
-                            self->stride,
-                            self->filters,
-                            gann_layer_get_activation (layer),
-                            NULL);
+                            self->kernel_width,
+                            self->kernel_stride,
+                            gann_layer_get_depth (layer),
+                            gann_layer_get_activation (layer));
 
     gann_layer_set_core (layer, core);
+
+    G_OBJECT_CLASS (gann_conv_layer_parent_class)->constructed (gobj);
 }
 
+static void
+compile (GannLayer *layer)
+{
+    GannConvLayer *self;
+    GannLayer *prev;
+
+    self = GANN_CONV_LAYER (layer);
+    prev = gann_layer_prev_layer (layer);
+    g_assert_nonnull (prev);
+
+    g_message ("compiled conv");
+    self->filtersize = self->kernel_width * self->kernel_height
+                     * gann_layer_get_depth (layer)
+                     * gann_layer_get_depth (prev);
+    self->filterdata = g_new (gfloat, self->filtersize);
+
+    GANN_LAYER_CLASS (gann_conv_layer_parent_class)->compile (layer);
+}
+
+/**
+ * gann_conv_layer_new:
+ * @network: network instance to attach to
+ * @kernel_size: size of kernel, N for NxN kernel
+ * @stride: kernel stride (usually 1)
+ * @filters: number of output filters
+ * @activation: activation function name
+ */
 GannConvLayer *
 gann_conv_layer_new (GannNetwork *network,
                      gint kernel_size,
@@ -198,9 +227,9 @@ gann_conv_layer_new (GannNetwork *network,
 {
     return g_object_new (GANN_TYPE_CONV_LAYER,
                          "network", network,
-                         "kernel-size", kernel_size,
-                         "stride", stride,
-                         "filters", filters,
+                         "kernel-width", kernel_size,
+                         "kernel-height", kernel_size,
+                         "kernel-stride", stride,
                          "width", -1,
                          "height", -1,
                          "depth", filters,
@@ -208,20 +237,35 @@ gann_conv_layer_new (GannNetwork *network,
                          NULL);
 }
 
+/**
+ * gann_conv_layer_get_kernel_width:
+ *
+ * returns: kernel width
+ */
 gint
-gann_conv_layer_get_kernel_size (GannConvLayer *self)
+gann_conv_layer_get_kernel_width (GannConvLayer *self)
 {
-    return self->kernel_size;
+    return self->kernel_width;
 }
 
+/**
+ * gann_conv_layer_get_kernel_height:
+ *
+ * returns: kernel height
+ */
 gint
-gann_conv_layer_get_stride (GannConvLayer *self)
+gann_conv_layer_get_kernel_height (GannConvLayer *self)
 {
-    return self->stride;
+    return self->kernel_height;
 }
 
+/**
+ * gann_conv_layer_get_stride:
+ *
+ * returns: stride
+ */
 gint
-gann_conv_layer_get_filters (GannConvLayer *self)
+gann_conv_layer_get_kernel_stride (GannConvLayer *self)
 {
-    return self->filters;
+    return self->kernel_stride;
 }

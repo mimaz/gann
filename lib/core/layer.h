@@ -125,12 +125,10 @@ struct layer
  * depth: depth dimension
  * activation: activation name, should be valid at least
  * for the call time
- * prev: previous layer pointer or NULL to attach to last one
  */
 struct layer *layer_make_dense (struct network *net,
                                 int width, int height, int depth,
-                                const char *activation,
-                                struct layer *prev);
+                                const char *activation);
 
 /*
  * layer_make_conv:
@@ -138,12 +136,10 @@ struct layer *layer_make_dense (struct network *net,
  * size: size of the kernel, for example 3 for 3x3 kernel
  * depth: number of filters
  * activation: activation function name
- * prev: previous layer or NULL to attach to the last one
  */
 struct layer *layer_make_conv (struct network *net,
                                int size, int depth, int stride,
-                               const char *activation,
-                               struct layer *prev);
+                               const char *activation);
 
 /*
  * layer_make_input:

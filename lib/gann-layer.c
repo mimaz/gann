@@ -67,6 +67,8 @@ static void set_property (GObject *gobj, guint propid,
                           const GValue *value, GParamSpec *spec);
 static void get_property (GObject *gobj, guint propid,
                           GValue *value, GParamSpec *spec);
+static void forward (GannLayer *self);
+static void backward (GannLayer *self);
 static void compile (GannLayer *self);
 
 static void
@@ -84,6 +86,8 @@ gann_layer_class_init (GannLayerClass *cls)
     gcls->set_property = set_property;
     gcls->get_property = get_property;
 
+    cls->forward = forward;
+    cls->backward = backward;
     cls->compile = compile;
 
     props[PROP_NETWORK] =
@@ -237,15 +241,40 @@ get_property (GObject *gobj,
 }
 
 static void
+forward (GannLayer *self)
+{
+}
+
+static void
+backward (GannLayer *self)
+{
+}
+
+static void
 compile (GannLayer *self)
 {
-    g_message ("Gann::Layer::compile");
+}
+
+/**
+ * gann_layer_forward: (virtual forward)
+ */
+void
+gann_layer_forward (GannLayer *self)
+{
+    GANN_LAYER_GET_CLASS (self)->forward (self);
+}
+
+/**
+ * gann_layer_backward: (virtual backward)
+ */
+void
+gann_layer_backward (GannLayer *self)
+{
+    GANN_LAYER_GET_CLASS (self)->backward (self);
 }
 
 /**
  * gann_layer_compile: (virtual compile)
- *
- * Compiles the layer
  */
 void
 gann_layer_compile (GannLayer *self)
@@ -267,12 +296,14 @@ gann_layer_append (GannLayer *self,
 {
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
 
-    if (g_slist_find (p->next_list, next) == NULL) {
+    g_message ("append %p %p", self, next);
+    if (g_slist_find (p->next_list, next) == NULL
+        && self != next) {
         p->next_list = g_slist_prepend (p->next_list, next);
         layer_append (gann_layer_get_core (self),
-                    gann_layer_get_core (next));
+                      gann_layer_get_core (next));
         gann_layer_prepend (next, self);
-    }
+    }else g_message ("pass");
 
     return self;
 }
@@ -291,10 +322,13 @@ gann_layer_prepend (GannLayer *self,
 {
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
 
-    if (g_slist_find (p->prev_list, prev) == NULL) {
+    if (g_slist_find (p->prev_list, prev) == NULL
+        && self != prev) {
+        g_message ("prepend %p %p", self, prev);
+        g_assert (prev != NULL);
         p->prev_list = g_slist_prepend (p->prev_list, prev);
         layer_prepend (gann_layer_get_core (self),
-                    gann_layer_get_core (prev));
+                       gann_layer_get_core (prev));
         gann_layer_append (prev, self);
     }
 
@@ -325,6 +359,47 @@ gann_layer_prev_list (GannLayer *self)
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
 
     return p->prev_list;
+}
+
+/**
+ * gann_layer_next_layer:
+ *
+ * This functions asserts there's at most one next layer
+ *
+ * returns: (transfer none): next layer
+ */
+GannLayer *
+gann_layer_next_layer (GannLayer *self)
+{
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+
+    g_assert (g_slist_length (p->next_list) < 2);
+
+    if (p->next_list != NULL)
+        return p->next_list->data;
+
+    return NULL;
+}
+
+/**
+ * gann_layer_prev_layer:
+ *
+ * This functions asserts there's at most one previous layer
+ *
+ * returns: (transfer none): previous layer
+ */
+GannLayer *
+gann_layer_prev_layer (GannLayer *self)
+{
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+
+    g_assert (g_slist_length (p->prev_list) < 2);
+
+    g_message ("prev_list %p %p", self, p->prev_list);
+    if (p->prev_list != NULL)
+        return p->prev_list->data;
+
+    return NULL;
 }
 
 /**
@@ -371,7 +446,6 @@ gann_layer_get_data_bytes (GannLayer *self,
         p->bytes_buff = g_new (guint8, p->l->size);
     }
 
-    g_message ("size: %lu", *size);
     for (i = 0; i < *size; i++) {
         p->bytes_buff[i] = p->value_buff[i] * 255.0f;
     }

@@ -45,33 +45,18 @@ static void release (struct layer *lay);
 struct layer *
 layer_make_conv (struct network *net,
                  int size, int stride, int filters,
-                 const char *activation,
-                 struct layer *prev)
+                 const char *activation)
 {
     struct conv_layer *conv;
     struct layer *lay;
-    int width, height;
 
     conv = g_new0 (struct conv_layer, 1);
     lay = (struct layer *) conv;
 
-    if (prev == NULL) {
-        prev = network_layer_last (net);
-    }
-
-    prev->next = lay;
-
-    width = prev->width;
-    height = prev->height;
-
     lay->net = net;
-    lay->prev = prev;
     lay->type = LAYER_CONV;
     lay->activation = activation;
-    lay->width = width;
-    lay->height = height;
     lay->depth = filters;
-    lay->size = width * height * filters;
     lay->compile = compile;
     lay->forward = forward;
     lay->backward = backward;
@@ -93,6 +78,7 @@ static void
 compile (struct layer *lay)
 {
     struct conv_layer *conv;
+    struct layer *prev;
     struct context *ctx;
     g_autofree float *weight_v;
     int z, y, x, d, i;
@@ -103,6 +89,12 @@ compile (struct layer *lay)
     ctx = lay->net->ctx;
     lay->weights = conv->kwidth * conv->kheight
         * lay->prev->depth * lay->depth;
+
+    prev = lay->prev;
+
+    lay->width = prev->width;
+    lay->height = prev->height;
+    lay->size = lay->width * lay->height * lay->depth;
 
     /*
      * Create buffers

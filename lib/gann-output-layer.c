@@ -69,6 +69,8 @@ constructed (GObject *gobj)
                   "height", core->height,
                   "depth", core->depth,
                   NULL);
+
+    G_OBJECT_CLASS (gann_output_layer_parent_class)->constructed (gobj);
 }
 
 GannOutputLayer *

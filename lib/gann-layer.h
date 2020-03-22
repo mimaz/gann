@@ -38,6 +38,20 @@ struct _GannLayerClass
     GObjectClass parent_class;
 
     /**
+     * forward:
+     *
+     * Propagates layer forward
+     */
+    void (*forward) (GannLayer *self);
+
+    /**
+     * backward:
+     *
+     * Backpropagates layer
+     */
+    void (*backward) (GannLayer *self);
+
+    /**
      * compile:
      *
      * Compile the layer
@@ -45,6 +59,8 @@ struct _GannLayerClass
     void (*compile) (GannLayer *self);
 };
 
+void gann_layer_forward (GannLayer *self);
+void gann_layer_backward (GannLayer *self);
 void gann_layer_compile (GannLayer *self);
 GannLayer *gann_layer_append (GannLayer *self,
                               GannLayer *next);
@@ -52,6 +68,8 @@ GannLayer *gann_layer_prepend (GannLayer *self,
                                GannLayer *prev);
 GSList *gann_layer_next_list (GannLayer *self);
 GSList *gann_layer_prev_list (GannLayer *self);
+GannLayer *gann_layer_next_layer (GannLayer *self);
+GannLayer *gann_layer_prev_layer (GannLayer *self);
 const gfloat *gann_layer_get_data (GannLayer *self,
                                    gsize *size);
 const guint8 *gann_layer_get_data_bytes (GannLayer *self,

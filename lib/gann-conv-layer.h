@@ -30,39 +30,13 @@ G_BEGIN_DECLS
 G_DECLARE_FINAL_TYPE (GannConvLayer, gann_conv_layer,
                       GANN, CONV_LAYER, GannLayer);
 
-/**
- * gann_conv_layer_new:
- * @network: network instance to attach to
- * @kernel_size: size of kernel, N for NxN kernel
- * @stride: kernel stride (usually 1)
- * @filters: number of output filters
- * @activation: activation function name
- */
 GannConvLayer *gann_conv_layer_new (GannNetwork *network,
                                     gint kernel_size,
                                     gint stride,
                                     gint filters,
                                     const gchar *activation);
-
-/**
- * gann_conv_layer_get_kernel_size:
- *
- * returns: kernel size
- */
-gint gann_conv_layer_get_kernel_size (GannConvLayer *self);
-
-/**
- * gann_conv_layer_get_stride:
- *
- * returns: stride
- */
+gint gann_conv_layer_get_kernel_width (GannConvLayer *self);
+gint gann_conv_layer_get_kernel_height (GannConvLayer *self);
 gint gann_conv_layer_get_stride (GannConvLayer *self);
-
-/**
- * gann_conv_layer_get_filters:
- *
- * returns: number of filters
- */
-gint gann_conv_layer_get_filters (GannConvLayer *self);
 
 G_END_DECLS

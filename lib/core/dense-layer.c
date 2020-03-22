@@ -45,8 +45,7 @@ static void release (struct layer *lay);
 struct layer *
 layer_make_dense (struct network *net,
                   int width, int height, int depth,
-                  const char *activation,
-                  struct layer *prev)
+                  const char *activation)
 {
     struct dense_layer *dense;
     struct layer *base;
@@ -54,14 +53,7 @@ layer_make_dense (struct network *net,
     dense = g_new0 (struct dense_layer, 1);
     base = (struct layer *) dense;
 
-    if (prev == NULL) {
-        prev = network_layer_last (net);
-    }
-
-    prev->next = base;
-
     base->net = net;
-    base->prev = prev;
     base->type = LAYER_DENSE;
     base->activation = activation;
     base->width = width;

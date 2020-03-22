@@ -43,26 +43,14 @@ struct layer *
 layer_make_output (struct network *net)
 {
     struct output_layer *out;
-    struct layer *base, *prev;
+    struct layer *base;
     int size;
 
     out = g_new0 (struct output_layer, 1);
     base = (struct layer *) out;
-    prev = network_layer_last (net);
-    size = prev->width * prev->height * prev->depth;
-
-    g_assert (size == prev->size);
-
-    prev->next = base;
 
     base->net = net;
-    base->prev = prev;
     base->type = LAYER_OUTPUT;
-    base->width = prev->width;
-    base->height = prev->height;
-    base->depth = prev->depth;
-    base->size = size;
-    base->weights = 0;
     base->compile = compile;
     base->forward = forward;
     base->backward = backward;
@@ -99,10 +87,19 @@ static void
 compile (struct layer *lay)
 {
     struct output_layer *out;
+    struct layer *prev;
     struct context *ctx;
 
     out = (struct output_layer *) lay;
     ctx = lay->net->ctx;
+    prev = lay->prev;
+
+    g_message ("out prev %p", prev);
+    lay->size = prev->width * prev->height * prev->depth;
+    lay->width = prev->width;
+    lay->height = prev->height;
+    lay->depth = prev->depth;
+    lay->weights = 0;
 
     /*
      * Create buffers

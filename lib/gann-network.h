@@ -64,10 +64,11 @@ GannConvLayer *gann_network_create_conv (GannNetwork *self,
                                          const gchar *activation);
 void gann_network_forward (GannNetwork *self);
 void gann_network_backward (GannNetwork *self);
+void gann_network_compile (GannNetwork *self);
 void gann_network_attach_layer (GannNetwork *self,
                                 GannLayer *layer);
-GannLayer *gann_network_get_layer (GannNetwork *self,
-                                   gint index);
+GannLayer *gann_network_layer (GannNetwork *self,
+                               gint index);
 GannLayer *gann_network_last_layer (GannNetwork *self);
 struct network *gann_network_get_core (GannNetwork *self);
 GannContext *gann_network_get_context (GannNetwork *self);

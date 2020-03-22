@@ -34,6 +34,7 @@ typedef struct {
     GannContext *context;
     GPtrArray *layer_arr;
     gfloat avg_loss;
+    gboolean compiled;
 } GannNetworkPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE (GannNetwork, gann_network, G_TYPE_OBJECT);
@@ -48,6 +49,7 @@ enum
     PROP_LAYER_COUNT,
     PROP_LOSS,
     PROP_AVERAGE_LOSS,
+    PROP_COMPILED,
     N_PROPS,
 };
 
@@ -131,6 +133,14 @@ gann_network_class_init (GannNetworkClass *cls)
                             0, G_MAXFLOAT, 0,
                             G_PARAM_READWRITE |
                             G_PARAM_STATIC_STRINGS);
+
+    props[PROP_COMPILED] =
+        g_param_spec_boolean ("compiled",
+                              "Compiled",
+                              "Compiled",
+                              FALSE,
+                              G_PARAM_READABLE |
+                              G_PARAM_STATIC_STRINGS);
 
     g_object_class_install_properties (gcls, N_PROPS, props);
 }
@@ -228,6 +238,14 @@ get_property (GObject *gobj,
         g_value_set_float (value, p->net->loss);
         break;
 
+    case PROP_AVERAGE_LOSS:
+        g_value_set_float (value, p->avg_loss);
+        break;
+
+    case PROP_COMPILED:
+        g_value_set_boolean (value, p->compiled);
+        break;
+
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (gobj, propid, spec);
     }
@@ -251,15 +269,18 @@ gann_network_new (GannContext *context,
 }
 
 static void
-append_to_last (GannNetwork *self,
-                GannLayer *layer)
+connect_two_last (GannNetwork *self)
 {
-    GannLayer *last;
+    GannLayer *first, *second;
 
-    last = gann_network_last_layer (self);
+    g_message ("lc %d", gann_network_layer_count (self));
 
-    if (last != NULL) {
-        gann_layer_append (last, layer);
+    if (gann_network_layer_count (self) > 1) {
+        first = gann_network_layer (self, -2);
+        second = gann_network_layer (self, -1);
+
+        g_message ("connect %p %p", first, second);
+        gann_layer_append (first, second);
     }
 }
 
@@ -277,7 +298,7 @@ gann_network_create_input (GannNetwork *self,
     GannInputLayer *input;
 
     input = gann_input_layer_new (self, width, height, depth);
-    append_to_last (self, GANN_LAYER (input));
+    connect_two_last (self);
 
     return input;
 }
@@ -293,7 +314,7 @@ gann_network_create_output (GannNetwork *self)
     GannOutputLayer *output;
 
     output = gann_output_layer_new (self);
-    append_to_last (self, GANN_LAYER (output));
+    connect_two_last (self);
 
     return output;
 }
@@ -313,7 +334,7 @@ gann_network_create_dense (GannNetwork *self,
     GannDenseLayer *dense;
 
     dense = gann_dense_layer_new (self, width, height, depth, activation);
-    append_to_last (self, GANN_LAYER (dense));
+    connect_two_last (self);
 
     return dense;
 }
@@ -333,23 +354,38 @@ gann_network_create_conv (GannNetwork *self,
     GannConvLayer *conv;
 
     conv = gann_conv_layer_new (self, size, stride, filters, activation);
-    append_to_last (self, GANN_LAYER (conv));
+    connect_two_last (self);
 
     return conv;
 }
 
+/**
+ * gann_network_forward:
+ *
+ * Propagates network forward
+ */
 void
 gann_network_forward (GannNetwork *self)
 {
     GannNetworkPrivate *p = gann_network_get_instance_private (self);
 
+    gann_network_compile (self);
+    g_message ("forward conv");
+
     network_forward (p->net);
 }
 
+/**
+ * gann_network_backward:
+ *
+ * Backpropagates network
+ */
 void
 gann_network_backward (GannNetwork *self)
 {
     GannNetworkPrivate *p = gann_network_get_instance_private (self);
+
+    gann_network_compile (self);
 
     network_backward (p->net);
 
@@ -366,18 +402,41 @@ gann_network_backward (GannNetwork *self)
                               props[PROP_AVERAGE_LOSS]);
 }
 
+/**
+ * gann_network_compile:
+ *
+ * Compiles network
+ */
+void
+gann_network_compile (GannNetwork *self)
+{
+    GannNetworkPrivate *p = gann_network_get_instance_private (self);
+
+    if (p->compiled) {
+        return;
+    }
+
+    g_ptr_array_foreach (p->layer_arr,
+                         (GFunc) gann_layer_compile,
+                         NULL);
+    p->compiled = TRUE;
+    g_object_notify_by_pspec (G_OBJECT (self),
+                              props[PROP_COMPILED]);
+}
+
 void
 gann_network_attach_layer (GannNetwork *self,
                            GannLayer *layer)
 {
     GannNetworkPrivate *p = gann_network_get_instance_private (self);
 
+    g_message ("attach layer");
     g_assert (g_ptr_array_find (p->layer_arr, layer, NULL) == FALSE);
     g_ptr_array_insert (p->layer_arr, -1, layer);
 }
 
 /**
- * gann_network_get_layer:
+ * gann_network_layer:
  *
  * returns: (transfer none): Pointer to layer at index @index
  */
@@ -387,6 +446,14 @@ gann_network_layer (GannNetwork *self,
 {
     GannNetworkPrivate *p = gann_network_get_instance_private (self);
 
+    if (index < 0) {
+        index = gann_network_layer_count (self) + index;
+        g_assert (index >= 0);
+
+        return gann_network_layer (self, index);
+    }
+
+    g_message ("index %d", index);
     g_return_val_if_fail (index < p->layer_arr->len, NULL);
     return g_ptr_array_index (p->layer_arr, index);
 }
@@ -497,7 +564,7 @@ gann_network_get_decay (GannNetwork *self)
 }
 
 gint
-gann_network_get_layer_count (GannNetwork *self)
+gann_network_layer_count (GannNetwork *self)
 {
     GannNetworkPrivate *p = gann_network_get_instance_private (self);
 
