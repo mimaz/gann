@@ -65,6 +65,7 @@ GannConvLayer *gann_network_create_conv (GannNetwork *self,
 void gann_network_forward (GannNetwork *self);
 void gann_network_backward (GannNetwork *self);
 void gann_network_compile (GannNetwork *self);
+void gann_network_clear_propagated (GannNetwork *self);
 void gann_network_attach_layer (GannNetwork *self,
                                 GannLayer *layer);
 GannLayer *gann_network_layer (GannNetwork *self,

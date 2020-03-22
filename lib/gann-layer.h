@@ -27,6 +27,7 @@ G_BEGIN_DECLS
 
 struct layer;
 typedef struct _GannNetwork GannNetwork;
+typedef struct _GannContext GannContext;
 
 #define GANN_TYPE_LAYER (gann_layer_get_type ())
 
@@ -75,10 +76,14 @@ const gfloat *gann_layer_get_data (GannLayer *self,
 const guint8 *gann_layer_get_data_bytes (GannLayer *self,
                                          gsize *size);
 GannNetwork *gann_layer_get_network (GannLayer *self);
+GannContext *gann_layer_get_context (GannLayer *self);
 gint gann_layer_get_width (GannLayer *self);
 gint gann_layer_get_height (GannLayer *self);
 gint gann_layer_get_depth (GannLayer *self);
 const gchar *gann_layer_get_activation (GannLayer *self);
+void gann_layer_set_propagated (GannLayer *self,
+                                gboolean propagated);
+gboolean gann_layer_get_propagated (GannLayer *self);
 void gann_layer_set_core (GannLayer *self,
                           struct layer *core);
 struct layer *gann_layer_get_core (GannLayer *self);

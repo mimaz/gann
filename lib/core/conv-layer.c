@@ -69,8 +69,6 @@ layer_make_conv (struct network *net,
     conv->kyshift = -size / 2;
     conv->kbuffer = g_new (float, lay->weights);
 
-    network_push_layer (net, lay);
-
     return lay;
 }
 

@@ -95,3 +95,19 @@ gann_context_get_core (GannContext *self)
 {
     return self->core;
 }
+
+/***************
+ * PRIVATE API *
+ ***************/
+
+cl_command_queue
+gann_context_cl_queue (GannContext *self)
+{
+    return self->core->queue;
+}
+
+cl_context
+gann_context_cl_context (GannContext *self)
+{
+    return self->core->context;
+}

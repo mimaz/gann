@@ -20,6 +20,10 @@
  */
 
 #include "gann-layer.h"
+#include "gann-layer-private.h"
+
+#include "gann-context.h"
+#include "gann-context-private.h"
 
 #include "gann-input-layer.h"
 #include "gann-output-layer.h"
@@ -28,14 +32,18 @@
 #include "gann-network.h"
 
 #include "core/layer.h"
+#include "core/network.h"
+#include "core/context.h"
 
 typedef struct {
     GannNetwork *network;
+    GannContext *context;
 
     gint width;
     gint height;
     gint depth;
     gchar *activation;
+    gboolean propagated;
 
     gfloat *value_buff;
     guint8 *bytes_buff;
@@ -52,10 +60,12 @@ enum
 {
     PROP_0,
     PROP_NETWORK,
+    PROP_CONTEXT,
     PROP_WIDTH,
     PROP_HEIGHT,
     PROP_DEPTH,
     PROP_ACTIVATION,
+    PROP_PROPAGATED,
     N_PROPS,
 };
 
@@ -99,6 +109,14 @@ gann_layer_class_init (GannLayerClass *cls)
                              G_PARAM_CONSTRUCT_ONLY |
                              G_PARAM_STATIC_STRINGS);
 
+    props[PROP_CONTEXT] =
+        g_param_spec_object ("context",
+                             "Context",
+                             "Context object",
+                             GANN_TYPE_CONTEXT,
+                             G_PARAM_READWRITE |
+                             G_PARAM_STATIC_STRINGS);
+
     props[PROP_WIDTH] =
         g_param_spec_int ("width",
                           "Width",
@@ -133,6 +151,14 @@ gann_layer_class_init (GannLayerClass *cls)
                              G_PARAM_READWRITE |
                              G_PARAM_CONSTRUCT_ONLY |
                              G_PARAM_STATIC_STRINGS);
+
+    props[PROP_PROPAGATED] =
+        g_param_spec_boolean ("propagated",
+                              "Propagated",
+                              "Was the layer propagated",
+                              FALSE,
+                              G_PARAM_READWRITE |
+                              G_PARAM_STATIC_STRINGS);
 
     g_object_class_install_properties (gcls, N_PROPS, props);
 }
@@ -182,6 +208,10 @@ set_property (GObject *gobj,
         g_set_weak_pointer (&p->network, g_value_get_object (value));
         break;
 
+    case PROP_CONTEXT:
+        g_set_weak_pointer (&p->context, g_value_get_object (value));
+        break;
+
     case PROP_WIDTH:
         p->width = g_value_get_int (value);
         break;
@@ -197,6 +227,10 @@ set_property (GObject *gobj,
     case PROP_ACTIVATION:
         g_clear_pointer (&p->activation, g_free);
         p->activation = g_value_dup_string (value);
+        break;
+
+    case PROP_PROPAGATED:
+        gann_layer_set_propagated (self, g_value_get_boolean (value));
         break;
 
     default:
@@ -219,6 +253,10 @@ get_property (GObject *gobj,
         g_value_set_object (value, p->network);
         break;
 
+    case PROP_CONTEXT:
+        g_value_set_object (value, p->context);
+        break;
+
     case PROP_WIDTH:
         g_value_set_int (value, p->width);
         break;
@@ -235,6 +273,10 @@ get_property (GObject *gobj,
         g_value_set_string (value, p->activation);
         break;
 
+    case PROP_PROPAGATED:
+        g_value_set_boolean (value, p->propagated);
+        break;
+
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (gobj, propid, spec);
     }
@@ -243,6 +285,8 @@ get_property (GObject *gobj,
 static void
 forward (GannLayer *self)
 {
+    g_message ("forward %s", g_type_name (G_OBJECT_TYPE (self)));
+    layer_forward (gann_layer_get_core (self));
 }
 
 static void
@@ -253,6 +297,8 @@ backward (GannLayer *self)
 static void
 compile (GannLayer *self)
 {
+    g_message ("compile %p %p", self, gann_layer_get_core (self));
+    layer_compile (gann_layer_get_core (self));
 }
 
 /**
@@ -456,13 +502,25 @@ gann_layer_get_data_bytes (GannLayer *self,
 /**
  * gann_layer_get_network:
  *
- * returns: (transfer none): Pointer to network instance
+ * returns: (transfer none): network instance
  */
 GannNetwork *
 gann_layer_get_network (GannLayer *self)
 {
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
     return p->network;
+}
+
+/**
+ * gann_layer_get_context:
+ *
+ * returns: (transfer none): context instance;
+ */
+GannContext *
+gann_layer_get_context (GannLayer *self)
+{
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+    return p->context;
 }
 
 /**
@@ -514,6 +572,33 @@ gann_layer_get_activation (GannLayer *self)
 }
 
 /**
+ * gann_layer_set_propagated:
+ */
+void
+gann_layer_set_propagated (GannLayer *self,
+                           gboolean propagated)
+{
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+
+    if (propagated != p->propagated) {
+        p->propagated = propagated;
+        g_object_notify_by_pspec (G_OBJECT (self),
+                                  props[PROP_PROPAGATED]);
+    }
+}
+
+/**
+ * gann_layer_get_propagated:
+ */
+gboolean
+gann_layer_get_propagated (GannLayer *self)
+{
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+
+    return p->propagated;
+}
+
+/**
  * gann_layer_set_core: (skip)
  */
 void
@@ -533,4 +618,39 @@ gann_layer_get_core (GannLayer *self)
 {
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
     return p->l;
+}
+
+/***************
+ * PRIVATE API *
+ ***************/
+
+void
+gann_layer_clear_gradient (GannLayer *self)
+{
+    struct layer *lay = gann_layer_get_core (self);
+
+    if (lay->gradient_mem != 0) {
+        context_clear_buffer (lay->net->ctx, lay->gradient_mem, lay->size, NULL);
+    }
+}
+
+void
+gann_layer_create_buffer (GannLayer *self,
+                          cl_mem *handle,
+                          cl_int size,
+                          cl_int flags)
+{
+    GannContext *context;
+    cl_int err;
+    cl_mem mem;
+
+    context = gann_layer_get_context (self);
+
+    mem = clCreateBuffer (gann_context_cl_context (context),
+                          flags,
+                          size * sizeof (cl_float),
+                          NULL, &err);
+    g_assert (err == CL_SUCCESS);
+
+    *handle = mem;
 }

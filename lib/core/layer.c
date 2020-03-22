@@ -91,7 +91,10 @@ layer_load_value (struct layer *lay,
                   int offset,
                   int count)
 {
-    g_assert (lay->value_mem != 0);
+    g_message ("load value %d %p", lay->type, lay);
+    if (lay->value_mem == 0) {
+        return;
+    }
     g_assert (offset + count <= lay->size);
     clFinish (lay->net->ctx->queue);
     clEnqueueReadBuffer (lay->net->ctx->queue,
@@ -101,14 +104,6 @@ layer_load_value (struct layer *lay,
                          count * sizeof (cl_float),
                          buff, 0, NULL, NULL);
     clFinish (lay->net->ctx->queue);
-}
-
-void
-layer_clear_gradient (struct layer *lay)
-{
-    if (lay->gradient_mem != 0) {
-        context_clear_buffer (lay->net->ctx, lay->gradient_mem, lay->size, NULL);
-    }
 }
 
 void

@@ -69,12 +69,6 @@ network_layer (struct network *net, int index)
     return g_ptr_array_index (net->layers, index);
 }
 
-struct layer *
-network_layer_last (struct network *net)
-{
-    return network_layer (net, -1);
-}
-
 int
 network_layer_count (struct network *net)
 {
@@ -82,49 +76,29 @@ network_layer_count (struct network *net)
 }
 
 void
-network_push_layer (struct network *net, struct layer *lay)
-{
-    g_ptr_array_insert (net->layers, -1, lay);
-}
-
-void
-network_forward (struct network *net)
-{
-    int i, count;
-    struct layer *lay;
-
-    count = network_layer_count (net);
-
-    for (i = 0; i < count; i++) {
-        lay = network_layer (net, i);
-        layer_forward (lay);
-    }
-}
-
-void
 network_backward (struct network *net)
 {
-    struct layer *lay;
-    int i, count;
-
-    count = network_layer_count (net);
-
-    for (i = 0; i < count; i++) {
-        lay = network_layer (net, i);
-        layer_clear_gradient (lay);
-    }
-
-    for (i = count; i > 0; i--) {
-        lay = network_layer (net, i - 1);
-        layer_backward (lay);
-    }
-
-    net->loss = 0;
-
-    for (i = 0; i < count; i++) {
-        lay = network_layer (net, i - 1);
-        net->loss += lay->loss;
-    }
-
-    net->loss = logf (net->loss + 1);
+    /* struct layer *lay; */
+    /* int i, count; */
+    /*  */
+    /* count = network_layer_count (net); */
+    /*  */
+    /* for (i = 0; i < count; i++) { */
+    /*     lay = network_layer (net, i); */
+    /*     layer_clear_gradient (lay); */
+    /* } */
+    /*  */
+    /* for (i = count; i > 0; i--) { */
+    /*     lay = network_layer (net, i - 1); */
+    /*     layer_backward (lay); */
+    /* } */
+    /*  */
+    /* net->loss = 0; */
+    /*  */
+    /* for (i = 0; i < count; i++) { */
+    /*     lay = network_layer (net, i - 1); */
+    /*     net->loss += lay->loss; */
+    /* } */
+    /*  */
+    /* net->loss = logf (net->loss + 1); */
 }

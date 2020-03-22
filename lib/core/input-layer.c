@@ -59,8 +59,6 @@ layer_make_input (struct network *net,
 
     input->data = g_new (float, base->size);
 
-    network_push_layer (net, base);
-
     return base;
 }
 

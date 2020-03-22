@@ -33,6 +33,8 @@ typedef struct {
     struct network *net;
     GannContext *context;
     GPtrArray *layer_arr;
+    GSList *output_list;
+    GSList *propagation_list;
     gfloat avg_loss;
     gboolean compiled;
 } GannNetworkPrivate;
@@ -152,6 +154,8 @@ dispose (GObject *gobj)
     GannNetworkPrivate *p = gann_network_get_instance_private (self);
 
     g_clear_pointer (&p->layer_arr, g_ptr_array_unref);
+    g_clear_pointer (&p->output_list, g_slist_free);
+    g_clear_pointer (&p->propagation_list, g_slist_free);
     g_clear_pointer (&p->net, network_free);
     g_clear_object (&p->context);
 
@@ -166,6 +170,8 @@ constructed (GObject *gobj)
 
     p->net = network_create (gann_context_get_core (p->context));
     p->layer_arr = g_ptr_array_new_with_free_func (g_object_unref);
+    p->output_list = NULL;
+    p->propagation_list = NULL;
     p->avg_loss = -1;
 
     G_OBJECT_CLASS (gann_network_parent_class)->constructed (gobj);
@@ -367,12 +373,23 @@ gann_network_create_conv (GannNetwork *self,
 void
 gann_network_forward (GannNetwork *self)
 {
-    GannNetworkPrivate *p = gann_network_get_instance_private (self);
+    GannNetworkPrivate *p;
+    GSList *list;
 
     gann_network_compile (self);
-    g_message ("forward conv");
+    
+    p = gann_network_get_instance_private (self);
+    list = p->propagation_list;
 
-    network_forward (p->net);
+    /* gann_network_clear_propagated (self); */
+
+    g_message ("forward list %p", list);
+    while (list != NULL) {
+        gann_layer_forward (list->data);
+        list = list->next;
+    }
+
+    /* network_forward (p->net); */
 }
 
 /**
@@ -402,6 +419,41 @@ gann_network_backward (GannNetwork *self)
                               props[PROP_AVERAGE_LOSS]);
 }
 
+static GSList *
+build_propagation_list (GSList *roots)
+{
+    g_autoptr (GQueue) queue;
+    g_autoptr (GHashTable) table;
+    GannLayer *layer;
+    GSList *list = NULL;
+
+    queue = g_queue_new ();
+    table = g_hash_table_new (g_direct_hash, g_direct_equal);
+
+    while (roots != NULL) {
+        g_queue_push_head (queue, roots->data);
+        g_hash_table_add (table, roots->data);
+        roots = roots->next;
+    }
+
+    while (!g_queue_is_empty (queue)) {
+        layer = g_queue_pop_tail (queue);
+        list = g_slist_prepend (list, layer);
+        roots = gann_layer_prev_list (layer);
+
+        while (roots != NULL) {
+            if (g_hash_table_lookup (table, roots->data) == NULL) {
+                g_queue_push_head (queue, roots->data);
+                g_hash_table_add (table, roots->data);
+            }
+            roots = roots->next;
+        }
+    }
+
+    g_message ("slist len %d", g_slist_length (list));
+    return list;
+}
+
 /**
  * gann_network_compile:
  *
@@ -419,11 +471,40 @@ gann_network_compile (GannNetwork *self)
     g_ptr_array_foreach (p->layer_arr,
                          (GFunc) gann_layer_compile,
                          NULL);
+
+    p->propagation_list = build_propagation_list (p->output_list);
     p->compiled = TRUE;
+
     g_object_notify_by_pspec (G_OBJECT (self),
                               props[PROP_COMPILED]);
 }
 
+static void
+clear_propagated (gpointer layer,
+                  gpointer user_data G_GNUC_UNUSED)
+{
+    gann_layer_set_propagated (layer, FALSE);
+}
+
+/**
+ * gann_network_clear_propagated:
+ *
+ * Clears all layers propagated flag property
+ */
+void
+gann_network_clear_propagated (GannNetwork *self)
+{
+    GannNetworkPrivate *p = gann_network_get_instance_private (self);
+
+    g_ptr_array_foreach (p->layer_arr, clear_propagated, NULL);
+}
+
+/**
+ * gann_network_attach_layer:
+ * @layer: layer to attach
+ *
+ * Adds layer to network, called by GannLayer constructor
+ */
 void
 gann_network_attach_layer (GannNetwork *self,
                            GannLayer *layer)
@@ -433,6 +514,10 @@ gann_network_attach_layer (GannNetwork *self,
     g_message ("attach layer");
     g_assert (g_ptr_array_find (p->layer_arr, layer, NULL) == FALSE);
     g_ptr_array_insert (p->layer_arr, -1, layer);
+
+    if (GANN_IS_OUTPUT_LAYER (layer)) {
+        p->output_list = g_slist_prepend (p->output_list, layer);
+    }
 }
 
 /**

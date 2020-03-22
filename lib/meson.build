@@ -23,6 +23,7 @@ public_header = [
 dependencies = [
     ganncore_dep,
     gobject_dep,
+    opencl_dep,
 ]
 
 gir_includes = [

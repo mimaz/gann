@@ -56,8 +56,6 @@ layer_make_output (struct network *net)
     base->backward = backward;
     base->release = release;
 
-    network_push_layer (net, base);
-
     return base;
 }
 
@@ -94,6 +92,7 @@ compile (struct layer *lay)
     ctx = lay->net->ctx;
     prev = lay->prev;
 
+    g_message ("compile out %p", lay);
     g_message ("out prev %p", prev);
     lay->size = prev->width * prev->height * prev->depth;
     lay->width = prev->width;

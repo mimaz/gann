@@ -65,8 +65,6 @@ layer_make_dense (struct network *net,
     base->backward = backward;
     base->release = release;
 
-    network_push_layer (net, base);
-
     return base;
 }
 
