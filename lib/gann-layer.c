@@ -80,6 +80,8 @@ static void get_property (GObject *gobj, guint propid,
 static void forward (GannLayer *self);
 static void backward (GannLayer *self);
 static void compile (GannLayer *self);
+static GannBuffer *value_buffer (GannLayer *self);
+static GannBuffer *gradient_buffer (GannLayer *self);
 
 static void
 gann_layer_init (GannLayer *self)
@@ -99,6 +101,8 @@ gann_layer_class_init (GannLayerClass *cls)
     cls->forward = forward;
     cls->backward = backward;
     cls->compile = compile;
+    cls->value_buffer = value_buffer;
+    cls->gradient_buffer = gradient_buffer;
 
     props[PROP_NETWORK] =
         g_param_spec_object ("network",
@@ -301,6 +305,18 @@ compile (GannLayer *self)
     layer_compile (gann_layer_get_core (self));
 }
 
+static GannBuffer *
+value_buffer (GannLayer *self G_GNUC_UNUSED)
+{
+    return NULL;
+}
+
+static GannBuffer *
+gradient_buffer (GannLayer *self G_GNUC_UNUSED)
+{
+    return NULL;
+}
+
 /**
  * gann_layer_forward: (virtual forward)
  */
@@ -446,6 +462,28 @@ gann_layer_prev_layer (GannLayer *self)
         return p->prev_list->data;
 
     return NULL;
+}
+
+/**
+ * gann_layer_value_buffer: (virtual value_buffer):
+ *
+ * returns: (transfer none):
+ */
+GannBuffer *
+gann_layer_value_buffer (GannLayer *self)
+{
+    return GANN_LAYER_GET_CLASS (self)->value_buffer (self);
+}
+
+/**
+ * gann_layer_gradient_buffer: (virtual gradient_buffer):
+ *
+ * returns: (transfer none):
+ */
+GannBuffer *
+gann_layer_gradient_buffer (GannLayer *self)
+{
+    return GANN_LAYER_GET_CLASS (self)->gradient_buffer (self);
 }
 
 /**

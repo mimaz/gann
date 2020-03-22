@@ -21,7 +21,7 @@
 
 #pragma once
 
-#include <glib-object.h>
+#include "gann-buffer.h"
 
 G_BEGIN_DECLS
 
@@ -58,6 +58,24 @@ struct _GannLayerClass
      * Compile the layer
      */
     void (*compile) (GannLayer *self);
+
+    /**
+     * value_buffer:
+     *
+     * Gets value buffer
+     *
+     * returns: (transfer none):
+     */
+    GannBuffer *(*value_buffer) (GannLayer *self);
+
+    /**
+     * gradient_buffer:
+     *
+     * Gets gradient buffer
+     *
+     * returns: (transfer none):
+     */
+    GannBuffer *(*gradient_buffer) (GannLayer *self);
 };
 
 void gann_layer_forward (GannLayer *self);
@@ -71,6 +89,8 @@ GSList *gann_layer_next_list (GannLayer *self);
 GSList *gann_layer_prev_list (GannLayer *self);
 GannLayer *gann_layer_next_layer (GannLayer *self);
 GannLayer *gann_layer_prev_layer (GannLayer *self);
+GannBuffer *gann_layer_value_buffer (GannLayer *self);
+GannBuffer *gann_layer_gradient_buffer (GannLayer *self);
 const gfloat *gann_layer_get_data (GannLayer *self,
                                    gsize *size);
 const guint8 *gann_layer_get_data_bytes (GannLayer *self,
