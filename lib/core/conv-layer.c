@@ -26,8 +26,12 @@
 struct conv_layer
 {
     struct layer base;
-    int size;
-    int stride;
+    int kwidth;
+    int kheight;
+    int kstride;
+    int kxshift;
+    int kyshift;
+    float *kbuffer;
     cl_program program;
     cl_kernel forward;
     cl_mem zero_mem;
@@ -73,8 +77,12 @@ layer_make_conv (struct network *net,
     lay->backward = backward;
     lay->release = release;
 
-    conv->size = size;
-    conv->stride = stride;
+    conv->kwidth = size;
+    conv->kheight = size;
+    conv->kstride = stride;
+    conv->kxshift = -size / 2;
+    conv->kyshift = -size / 2;
+    conv->kbuffer = g_new (float, lay->weights);
 
     network_push_layer (net, lay);
 
@@ -93,7 +101,8 @@ compile (struct layer *lay)
 
     conv = (struct conv_layer *) lay;
     ctx = lay->net->ctx;
-    lay->weights = conv->size * conv->size * lay->prev->depth * lay->depth;
+    lay->weights = conv->kwidth * conv->kheight
+        * lay->prev->depth * lay->depth;
 
     /*
      * Create buffers
@@ -121,15 +130,15 @@ compile (struct layer *lay)
     weight_v = g_new (float, lay->weights);
 
     for (z = 0; z < lay->depth; z++) {
-        for (y = 0; y < conv->size; y++) {
-            for (x = 0; x < conv->size; x++) {
+        for (y = 0; y < conv->kheight; y++) {
+            for (x = 0; x < conv->kwidth; x++) {
                 for (d = 0; d < lay->prev->depth; d++) {
-                    i = z * conv->size * conv->size * lay->prev->depth
-                        + y * conv->size * lay->prev->depth
+                    i = z * conv->kwidth * conv->kheight * lay->prev->depth
+                        + y * conv->kwidth * lay->prev->depth
                         + x * lay->prev->depth
                         + d;
-                    if (d == z) {
-                        weight_v[i] = 1.0f / 9;
+                    if (x == 1 && y == 1) {
+                        weight_v[i] = 1.0f / 3;
                     } else {
                         weight_v[i] = 0.0f;
                     }
@@ -158,12 +167,12 @@ compile (struct layer *lay)
      */
     context_program_clear (ctx);
     context_program_file (ctx, "conv-layer.cl");
-    context_program_option (ctx, "-DKERNEL_WIDTH=%d", conv->size);
-    context_program_option (ctx, "-DKERNEL_HEIGHT=%d", conv->size);
+    context_program_option (ctx, "-DKERNEL_WIDTH=%d", conv->kwidth);
+    context_program_option (ctx, "-DKERNEL_HEIGHT=%d", conv->kheight);
     context_program_option (ctx, "-DKERNEL_DEPTH=%d", lay->depth);
-    context_program_option (ctx, "-DKERNEL_STRIDE=%d", conv->stride);
-    context_program_option (ctx, "-DKERNEL_X_SHIFT=%d", -1);
-    context_program_option (ctx, "-DKERNEL_Y_SHIFT=%d", -1);
+    context_program_option (ctx, "-DKERNEL_STRIDE=%d", conv->kstride);
+    context_program_option (ctx, "-DKERNEL_X_SHIFT=%d", conv->kxshift);
+    context_program_option (ctx, "-DKERNEL_Y_SHIFT=%d", conv->kyshift);
     context_program_option (ctx, "-DWIDTH=%d", lay->width);
     context_program_option (ctx, "-DHEIGHT=%d", lay->height);
     context_program_option (ctx, "-DDEPTH=%d", lay->depth);
@@ -172,7 +181,6 @@ compile (struct layer *lay)
     context_program_option (ctx, "-DINPUT_DEPTH=%d", lay->prev->depth);
     context_program_build (ctx, &conv->program);
     context_program_kernel (ctx, "forward", &conv->forward);
-    g_message ("gsize: %d", conv->size);
 
     /*
      * Synchronize
@@ -230,4 +238,10 @@ backward (struct layer *lay)
 static void
 release (struct layer *lay)
 {
+    struct conv_layer *conv;
+
+    g_assert (lay->type == LAYER_CONV);
+    conv = (struct conv_layer *) lay;
+
+    g_free (conv->kbuffer);
 }

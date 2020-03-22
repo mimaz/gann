@@ -30,7 +30,7 @@ public void conv_test () throws Error
     var context = new Gann.Context ();
     var network = new Gann.Network (context, 0.5f, 0.99f, 1.0f);
     var input = network.create_input (64, 64, 3);
-    network.create_conv (3, 1, 3, "softplus");
+    network.create_conv (3, 1, 1, "softplus");
     var output = network.create_output ();
 
     input.set_data_bytes (pixbuf.get_pixels_with_length ());
@@ -45,10 +45,10 @@ public void conv_test () throws Error
     stage.hide.connect (Clutter.main_quit);
     stage.content = image;
     image.set_data (result,
-                    Cogl.PixelFormat.RGB_888,
+                    Cogl.PixelFormat.G_8,
                     pixbuf.width,
                     pixbuf.height,
-                    pixbuf.rowstride);
+                    pixbuf.rowstride / 3);
 
     Clutter.main ();
 }

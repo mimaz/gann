@@ -249,3 +249,25 @@ void layer_input_set_data (struct layer *lay,
 void layer_output_set_truth (struct layer *lay,
                              const float *data,
                              int size);
+
+/*
+ * layer_conv_set_filter:
+ * Sets convolutional layer filter data
+ * data: data memory
+ * offset: offset from the beginning of memory
+ * size: size of data array, must be equal to actual filter size
+ */
+void layer_conv_set_filter (struct layer *lay,
+                            const float *data,
+                            int offset,
+                            int size);
+
+/*
+ * layer_conv_get_filter:
+ * Returns convolutional layer filter data
+ * offset: offset from the beginning of memory
+ * size: (optional): pointer to returned array size
+ */
+const float *layer_conv_get_filter (struct layer *lay,
+                                    int offset,
+                                    int *size);
