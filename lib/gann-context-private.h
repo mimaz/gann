@@ -28,5 +28,10 @@ G_BEGIN_DECLS
 
 cl_command_queue gann_context_cl_queue (GannContext *self);
 cl_context gann_context_cl_context (GannContext *self);
+cl_device_id gann_context_cl_device (GannContext *self);
+const gchar *gann_context_code (GannContext *self,
+                                const gchar *filename);
+const gchar *gann_context_activation (GannContext *self,
+                                      const gchar *name);
 
 G_END_DECLS

@@ -111,3 +111,23 @@ gann_context_cl_context (GannContext *self)
 {
     return self->core->context;
 }
+
+cl_device_id
+gann_context_cl_device (GannContext *self)
+{
+    return self->core->device;
+}
+
+const gchar *
+gann_context_code (GannContext *self,
+                   const gchar *filename)
+{
+    return context_read_cl_code (self->core, filename);
+}
+
+const gchar *
+gann_context_activation (GannContext *self,
+                         const gchar *name)
+{
+    return name;
+}

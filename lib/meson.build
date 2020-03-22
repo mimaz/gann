@@ -8,6 +8,13 @@ source = [
     'gann-output-layer.c',
     'gann-dense-layer.c',
     'gann-conv-layer.c',
+    'gann-program-builder.c',
+]
+
+private_header = [
+  'gann-layer-private.h',
+  'gann-context-private.h',
+  'gann-program-builder.h',
 ]
 
 public_header = [
