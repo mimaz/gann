@@ -9,12 +9,14 @@ source = [
     'gann-dense-layer.c',
     'gann-conv-layer.c',
     'gann-program-builder.c',
+    'gann-buffer.c',
 ]
 
 private_header = [
   'gann-layer-private.h',
   'gann-context-private.h',
   'gann-program-builder.h',
+  'gann-buffer-private.h',
 ]
 
 public_header = [
@@ -25,6 +27,7 @@ public_header = [
     'gann-output-layer.h',
     'gann-dense-layer.h',
     'gann-conv-layer.h',
+    'gann-buffer.h',
 ]
 
 dependencies = [
