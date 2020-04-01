@@ -39,15 +39,17 @@ G_DECLARE_DERIVABLE_TYPE (GannBuffer, gann_buffer,
 
 GannBuffer *gann_buffer_new (GannContext *context,
                              GType element_type,
-                             gint width,
                              gint height,
+                             gint width,
                              gint depth);
 GannContext *gann_buffer_get_context (GannBuffer *self);
 GType gann_buffer_get_element_type (GannBuffer *self);
 gint gann_buffer_get_element_size (GannBuffer *self);
-gint gann_buffer_get_width (GannBuffer *self);
 gint gann_buffer_get_height (GannBuffer *self);
+gint gann_buffer_get_width (GannBuffer *self);
 gint gann_buffer_get_depth (GannBuffer *self);
+gint gann_buffer_get_size (GannBuffer *self);
+void gann_buffer_clear (GannBuffer *self);
 GannBuffer *gann_buffer_write (GannBuffer *self,
                                gint offset,
                                const gfloat *data,

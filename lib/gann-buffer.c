@@ -26,9 +26,10 @@ typedef struct {
     GannContext *context;
     GType element_type;
     gint element_size;
-    gint width;
     gint height;
+    gint width;
     gint depth;
+    gint size;
 
     gfloat *data;
     cl_mem mem;
@@ -43,9 +44,10 @@ enum
     PROP_CONTEXT,
     PROP_ELEMENT_TYPE,
     PROP_ELEMENT_SIZE,
-    PROP_WIDTH,
     PROP_HEIGHT,
+    PROP_WIDTH,
     PROP_DEPTH,
+    PROP_SIZE,
     N_PROPS,
 };
 
@@ -102,19 +104,19 @@ gann_buffer_class_init (GannBufferClass *cls)
                           G_PARAM_READABLE |
                           G_PARAM_STATIC_STRINGS);
     
-    props[PROP_WIDTH] =
-        g_param_spec_int ("width",
-                          "Width",
-                          "Buffer width dimension",
+    props[PROP_HEIGHT] =
+        g_param_spec_int ("height",
+                          "Height",
+                          "Buffer height dimension",
                           0, G_MAXINT32, 0,
                           G_PARAM_READWRITE |
                           G_PARAM_CONSTRUCT_ONLY |
                           G_PARAM_STATIC_STRINGS);
 
-    props[PROP_HEIGHT] =
-        g_param_spec_int ("height",
-                          "Height",
-                          "Buffer height dimension",
+    props[PROP_WIDTH] =
+        g_param_spec_int ("width",
+                          "Width",
+                          "Buffer width dimension",
                           0, G_MAXINT32, 0,
                           G_PARAM_READWRITE |
                           G_PARAM_CONSTRUCT_ONLY |
@@ -127,6 +129,14 @@ gann_buffer_class_init (GannBufferClass *cls)
                           0, G_MAXINT32, 0,
                           G_PARAM_READWRITE |
                           G_PARAM_CONSTRUCT_ONLY |
+                          G_PARAM_STATIC_STRINGS);
+
+    props[PROP_SIZE] =
+        g_param_spec_int ("size",
+                          "Size",
+                          "Total size: width * height * depth",
+                          0, G_MAXINT32, 0,
+                          G_PARAM_READABLE |
                           G_PARAM_STATIC_STRINGS);
 
     g_object_class_install_properties (gcls, N_PROPS, props);
@@ -144,6 +154,9 @@ constructed (GObject *gobj)
         g_error ("invalid buffer element type");
     }
 
+    p->size = p->height * p->width * p->depth;
+
+    g_object_notify_by_pspec (gobj, props[PROP_SIZE]);
     g_object_notify_by_pspec (gobj, props[PROP_ELEMENT_SIZE]);
 
     G_OBJECT_CLASS (gann_buffer_parent_class)->constructed (gobj);
@@ -177,12 +190,12 @@ set_property (GObject *gobj, guint propid,
         p->element_type = g_value_get_gtype (value);
         break;
 
-    case PROP_WIDTH:
-        p->width = g_value_get_int (value);
-        break;
-
     case PROP_HEIGHT:
         p->height = g_value_get_int (value);
+        break;
+
+    case PROP_WIDTH:
+        p->width = g_value_get_int (value);
         break;
 
     case PROP_DEPTH:
@@ -214,16 +227,20 @@ get_property (GObject *gobj, guint propid,
         g_value_set_int (value, p->element_size);
         break;
 
-    case PROP_WIDTH:
-        g_value_set_int (value, p->width);
-        break;
-
     case PROP_HEIGHT:
         g_value_set_int (value, p->height);
         break;
 
+    case PROP_WIDTH:
+        g_value_set_int (value, p->width);
+        break;
+
     case PROP_DEPTH:
         g_value_set_int (value, p->depth);
+        break;
+
+    case PROP_SIZE:
+        g_value_set_int (value, p->size);
         break;
 
     default:
@@ -234,15 +251,15 @@ get_property (GObject *gobj, guint propid,
 GannBuffer *
 gann_buffer_new (GannContext *context,
                  GType element_type,
-                 gint width,
                  gint height,
+                 gint width,
                  gint depth)
 {
     return g_object_new (GANN_TYPE_BUFFER,
                          "context", context,
                          "element-type", element_type,
-                         "width", width,
                          "height", height,
+                         "width", width,
                          "depth", depth,
                          NULL);
 }
@@ -277,14 +294,6 @@ gann_buffer_get_element_size (GannBuffer *self)
 }
 
 gint
-gann_buffer_get_width (GannBuffer *self)
-{
-    GannBufferPrivate *p = gann_buffer_get_instance_private (self);
-    
-    return p->width;
-}
-
-gint
 gann_buffer_get_height (GannBuffer *self)
 {
     GannBufferPrivate *p = gann_buffer_get_instance_private (self);
@@ -293,11 +302,27 @@ gann_buffer_get_height (GannBuffer *self)
 }
 
 gint
+gann_buffer_get_width (GannBuffer *self)
+{
+    GannBufferPrivate *p = gann_buffer_get_instance_private (self);
+    
+    return p->width;
+}
+
+gint
 gann_buffer_get_depth (GannBuffer *self)
 {
     GannBufferPrivate *p = gann_buffer_get_instance_private (self);
     
     return p->depth;
+}
+
+gint
+gann_buffer_get_size (GannBuffer *self)
+{
+    GannBufferPrivate *p = gann_buffer_get_instance_private (self);
+
+    return p->size;
 }
 
 /**
@@ -352,6 +377,22 @@ gann_buffer_read (GannBuffer *self,
                          p->evcount, evlist, &p->event);
 
     return p->data;
+}
+
+void
+gann_buffer_clear (GannBuffer *self)
+{
+    g_autofree gfloat *values;
+    gint size, i;
+
+    size = gann_buffer_get_size (self);
+    values = g_new (gfloat, size);
+
+    for (i = 0; i < size; i++) {
+        values[i] = 0;
+    }
+
+    gann_buffer_write (self, 0, values, size);
 }
 
 /***************

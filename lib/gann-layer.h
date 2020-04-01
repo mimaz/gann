@@ -28,6 +28,7 @@ G_BEGIN_DECLS
 struct layer;
 typedef struct _GannNetwork GannNetwork;
 typedef struct _GannContext GannContext;
+typedef struct _GannBarrier GannBarrier;
 
 #define GANN_TYPE_LAYER (gann_layer_get_type ())
 
@@ -104,6 +105,15 @@ const gchar *gann_layer_get_activation (GannLayer *self);
 void gann_layer_set_propagated (GannLayer *self,
                                 gboolean propagated);
 gboolean gann_layer_get_propagated (GannLayer *self);
+void gann_layer_set_compiled (GannLayer *self,
+                              gboolean compiled);
+gboolean gann_layer_get_compiled (GannLayer *self);
+void gann_layer_set_forward_barrier (GannLayer *self,
+                                     GannBarrier *barrier);
+GannBarrier *gann_layer_get_forward_barrier (GannLayer *self);
+void gann_layer_set_backward_barrier (GannLayer *self,
+                                      GannBarrier *barrier);
+GannBarrier *gann_layer_get_backward_barrier (GannLayer *self);
 void gann_layer_set_core (GannLayer *self,
                           struct layer *core);
 struct layer *gann_layer_get_core (GannLayer *self);

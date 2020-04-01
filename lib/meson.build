@@ -10,6 +10,7 @@ source = [
     'gann-conv-layer.c',
     'gann-program-builder.c',
     'gann-buffer.c',
+    'gann-barrier.c',
 ]
 
 private_header = [
@@ -28,6 +29,7 @@ public_header = [
     'gann-dense-layer.h',
     'gann-conv-layer.h',
     'gann-buffer.h',
+    'gann-barrier.h',
 ]
 
 dependencies = [

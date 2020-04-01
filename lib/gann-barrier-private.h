@@ -1,5 +1,5 @@
 /*
- * test.vala
+ * gann-barrier-private.h
  *
  * Copyright 2020 Mieszko Mazurek <mimaz@gmx.com>
  *
@@ -19,16 +19,19 @@
  * along with Gann.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-int main (string[] args)
-{
-    Clutter.init (ref args);
+#pragma once
 
-    try {
-        // conv_test ();
-        dense_test ();
-    } catch (Error error) {
-        message ("error");
-        return 1;
-    }
-    return 0;
-}
+#include "gann-barrier.h"
+#include "gann-opencl.h"
+
+G_BEGIN_DECLS
+
+void gann_barrier_add_cl_event (GannBarrier *self,
+                                cl_event event);
+void gann_barrier_remove_cl_event (GannBarrier *self,
+                                   cl_event event);
+void gann_barrier_cl_clear (GannBarrier *self);
+const cl_event *gann_barrier_cl_events (GannBarrier *self,
+                                        gint *count);
+
+G_END_DECLS

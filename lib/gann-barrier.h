@@ -1,5 +1,5 @@
 /*
- * test.vala
+ * gann-barrier.h
  *
  * Copyright 2020 Mieszko Mazurek <mimaz@gmx.com>
  *
@@ -19,16 +19,23 @@
  * along with Gann.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-int main (string[] args)
-{
-    Clutter.init (ref args);
+#pragma once
 
-    try {
-        // conv_test ();
-        dense_test ();
-    } catch (Error error) {
-        message ("error");
-        return 1;
-    }
-    return 0;
-}
+#include <glib-object.h>
+
+G_BEGIN_DECLS
+
+typedef struct _GannContext GannContext;
+
+#define GANN_TYPE_BARRIER (gann_barrier_get_type ())
+
+G_DECLARE_FINAL_TYPE (GannBarrier, gann_barrier,
+                      GANN, BARRIER, GObject);
+
+GannBarrier *gann_barrier_new (GannContext *context);
+GannBarrier *gann_barrier_new_from_barrier (GannBarrier *barrier);
+GannContext *gann_barrier_get_context (GannBarrier *self);
+void gann_barrier_attach (GannBarrier *self,
+                          GannBarrier *barrier);
+
+G_END_DECLS

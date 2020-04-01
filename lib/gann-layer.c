@@ -21,15 +21,14 @@
 
 #include "gann-layer.h"
 #include "gann-layer-private.h"
-
 #include "gann-context.h"
 #include "gann-context-private.h"
-
 #include "gann-input-layer.h"
 #include "gann-output-layer.h"
 #include "gann-dense-layer.h"
 #include "gann-conv-layer.h"
 #include "gann-network.h"
+#include "gann-barrier.h"
 
 #include "core/layer.h"
 #include "core/network.h"
@@ -44,6 +43,9 @@ typedef struct {
     gint depth;
     gchar *activation;
     gboolean propagated;
+    gboolean compiled;
+    GannBarrier *forward_barrier;
+    GannBarrier *backward_barrier;
 
     gfloat *value_buff;
     guint8 *bytes_buff;
@@ -66,12 +68,16 @@ enum
     PROP_DEPTH,
     PROP_ACTIVATION,
     PROP_PROPAGATED,
+    PROP_COMPILED,
+    PROP_FORWARD_BARRIER,
+    PROP_BACKWARD_BARRIER,
     N_PROPS,
 };
 
 static GParamSpec *props[N_PROPS];
 
 static void dispose (GObject *gobj);
+static void finalize (GObject *gobj);
 static void constructed (GObject *gobj);
 static void set_property (GObject *gobj, guint propid,
                           const GValue *value, GParamSpec *spec);
@@ -94,6 +100,7 @@ gann_layer_class_init (GannLayerClass *cls)
     GObjectClass *gcls = G_OBJECT_CLASS (cls);
 
     gcls->dispose = dispose;
+    gcls->finalize = finalize;
     gcls->constructed = constructed;
     gcls->set_property = set_property;
     gcls->get_property = get_property;
@@ -164,6 +171,30 @@ gann_layer_class_init (GannLayerClass *cls)
                               G_PARAM_READWRITE |
                               G_PARAM_STATIC_STRINGS);
 
+    props[PROP_COMPILED] =
+        g_param_spec_boolean ("compiled",
+                              "Compiled",
+                              "Is the layer compiled",
+                              FALSE,
+                              G_PARAM_READWRITE |
+                              G_PARAM_STATIC_STRINGS);
+
+    props[PROP_FORWARD_BARRIER] =
+        g_param_spec_object ("forward-barrier",
+                             "Forward barrier",
+                             "Forward barrier object",
+                             GANN_TYPE_BARRIER,
+                             G_PARAM_READWRITE |
+                             G_PARAM_STATIC_STRINGS);
+
+    props[PROP_BACKWARD_BARRIER] =
+        g_param_spec_object ("backward-barrier",
+                             "Backward barrier",
+                             "Backward barrier object",
+                             GANN_TYPE_BARRIER,
+                             G_PARAM_READWRITE |
+                             G_PARAM_STATIC_STRINGS);
+
     g_object_class_install_properties (gcls, N_PROPS, props);
 }
 
@@ -178,6 +209,18 @@ dispose (GObject *gobj)
     g_clear_pointer (&p->bytes_buff, g_free);
 
     G_OBJECT_CLASS (gann_layer_parent_class)->dispose (gobj);
+}
+
+static void
+finalize (GObject *gobj)
+{
+    GannLayer *self = GANN_LAYER (gobj);
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+
+    g_clear_object (&p->forward_barrier);
+    g_clear_object (&p->backward_barrier);
+
+    G_OBJECT_CLASS (gann_layer_parent_class)->finalize (gobj);
 }
 
 static void
@@ -237,6 +280,18 @@ set_property (GObject *gobj,
         gann_layer_set_propagated (self, g_value_get_boolean (value));
         break;
 
+    case PROP_COMPILED:
+        gann_layer_set_compiled (self, g_value_get_boolean (value));
+        break;
+
+    case PROP_FORWARD_BARRIER:
+        gann_layer_set_forward_barrier (self, g_value_get_object (value));
+        break;
+
+    case PROP_BACKWARD_BARRIER:
+        gann_layer_set_backward_barrier (self, g_value_get_object (value));
+        break;
+
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (gobj, propid, spec);
     }
@@ -279,6 +334,18 @@ get_property (GObject *gobj,
 
     case PROP_PROPAGATED:
         g_value_set_boolean (value, p->propagated);
+        break;
+
+    case PROP_COMPILED:
+        g_value_set_boolean (value, p->compiled);
+        break;
+
+    case PROP_FORWARD_BARRIER:
+        g_value_set_object (value, p->forward_barrier);
+        break;
+
+    case PROP_BACKWARD_BARRIER:
+        g_value_set_object (value, p->backward_barrier);
         break;
 
     default:
@@ -634,6 +701,90 @@ gann_layer_get_propagated (GannLayer *self)
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
 
     return p->propagated;
+}
+
+/**
+ * gann_layer_set_compiled:
+ */
+void
+gann_layer_set_compiled (GannLayer *self,
+                         gboolean compiled)
+{
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+
+    if (compiled != p->compiled) {
+        p->compiled = compiled;
+
+        g_object_notify_by_pspec (G_OBJECT (self),
+                                  props[PROP_COMPILED]);
+    }
+}
+
+/**
+ * gann_layer_get_compiled:
+ */
+gboolean
+gann_layer_get_compiled (GannLayer *self)
+{
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+
+    return p->compiled;
+}
+
+/**
+ * gann_layer_set_forward_barrier:
+ */
+void
+gann_layer_set_forward_barrier (GannLayer *self,
+                                GannBarrier *barrier)
+{
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+
+    if (g_set_object (&p->forward_barrier, barrier)) {
+        g_object_notify_by_pspec (G_OBJECT (self),
+                                  props[PROP_FORWARD_BARRIER]);
+    }
+}
+
+/**
+ * gann_layer_get_forward_barrier:
+ *
+ * returns: (transfer none):
+ */
+GannBarrier *
+gann_layer_get_forward_barrier (GannLayer *self)
+{
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+
+    return p->forward_barrier;
+}
+
+/**
+ * gann_layer_set_backward_barrier:
+ */
+void
+gann_layer_set_backward_barrier (GannLayer *self,
+                                 GannBarrier *barrier)
+{
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+
+    if (g_set_object (&p->backward_barrier, barrier)) {
+        g_object_notify_by_pspec (G_OBJECT (self),
+                                  props[PROP_BACKWARD_BARRIER]);
+    }
+}
+
+/**
+ * gann_layer_get_backward_barrier:
+ *
+ * returns: (transfer none):
+ */
+GannBarrier *
+gann_layer_get_backward_barrier (GannLayer *self)
+{
+    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+
+    return p->backward_barrier;
 }
 
 /**

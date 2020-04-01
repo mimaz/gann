@@ -34,10 +34,7 @@ public void dense_test () throws Error
      * available activations: relu, leaky, sigmoid, softplus, linear
      */
     var input = network.create_input (1, 1, 2);
-    network.create_dense (1, 1, 64, "leaky");
     network.create_dense (1, 1, 64, "relu");
-    network.create_dense (1, 1, 64, "sigmoid");
-    network.create_dense (1, 1, 64, "softplus");
     network.create_dense (1, 1, 1, "linear");
     var output = network.create_output ();
 
@@ -56,7 +53,6 @@ public void dense_test () throws Error
         int p = (int) rand.boolean ();
         int q = (int) rand.boolean ();
         int e = (int) (p == 0 && q == 0);
-        // e = (int) (p == 0);
 
         float[] indata = { p, q, };
         float[] outdata = { e, };

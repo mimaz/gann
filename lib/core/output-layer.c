@@ -65,6 +65,7 @@ layer_output_set_truth (struct layer *lay,
                         int size)
 {
     struct output_layer *out;
+    g_message ("set truth %d %d", lay->size, size);
 
     g_assert (lay->type == LAYER_OUTPUT);
     g_assert (lay->size == size);
