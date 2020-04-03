@@ -11,6 +11,7 @@ source = [
     'gann-program-builder.c',
     'gann-buffer.c',
     'gann-barrier.c',
+    'gann-cl-barrier.c',
 ]
 
 private_header = [
@@ -18,6 +19,7 @@ private_header = [
   'gann-context-private.h',
   'gann-program-builder.h',
   'gann-buffer-private.h',
+  'gann-cl-barrier.h',
 ]
 
 public_header = [

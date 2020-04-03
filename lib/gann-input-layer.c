@@ -21,6 +21,7 @@
 
 #include "gann-input-layer.h"
 #include "gann-network.h"
+#include "gann-cl-barrier.h"
 
 #include "core/core.h"
 
@@ -34,9 +35,6 @@ struct _GannInputLayer
     gfloat *data_v;
 };
 
-G_DEFINE_TYPE (GannInputLayer, gann_input_layer,
-               GANN_TYPE_LAYER);
-
 static void dispose (GObject *gobj);
 static void constructed (GObject *gobj);
 static void finalize (GObject *gobj);
@@ -45,6 +43,16 @@ static void backward (GannLayer *layer);
 static void compile (GannLayer *layer);
 static GannBuffer *value_buffer (GannLayer *layer);
 static GannBuffer *gradient_buffer (GannLayer *layer);
+static void cl_barrier_init (GannClBarrierInterface *itf);
+static gboolean forward_barrier (GannClBarrier *barrier,
+                                 cl_event *event);
+static gboolean backward_barrier (GannClBarrier *barrier,
+                                  cl_event *event);
+
+G_DEFINE_TYPE_WITH_CODE (GannInputLayer, gann_input_layer,
+                         GANN_TYPE_LAYER,
+                         G_IMPLEMENT_INTERFACE (GANN_TYPE_CL_BARRIER,
+                                                cl_barrier_init));
 
 static void
 gann_input_layer_init (GannInputLayer *self)
@@ -141,6 +149,27 @@ static GannBuffer *
 gradient_buffer (GannLayer *layer)
 {
     return GANN_INPUT_LAYER (layer)->gradient_buffer;
+}
+
+static void
+cl_barrier_init (GannClBarrierInterface *itf)
+{
+    itf->forward_barrier = forward_barrier;
+    itf->backward_barrier = backward_barrier;
+}
+
+static gboolean
+forward_barrier (GannClBarrier *barrier,
+                 cl_event *event)
+{
+    return FALSE;
+}
+
+static gboolean
+backward_barrier (GannClBarrier *barrier,
+                  cl_event *event)
+{
+    return FALSE;
 }
 
 GannInputLayer *

@@ -20,8 +20,8 @@
  */
 
 #include "gann-output-layer.h"
-
 #include "gann-network.h"
+#include "gann-cl-barrier.h"
 
 #include "core/layer.h"
 
@@ -30,9 +30,17 @@ struct _GannOutputLayer
     GannLayer parent_instance;
 };
 
-G_DEFINE_TYPE (GannOutputLayer, gann_output_layer, GANN_TYPE_LAYER);
-
 static void constructed (GObject *gobj);
+static void cl_barrier_init (GannClBarrierInterface *itf);
+static gboolean forward_barrier (GannClBarrier *barrier,
+                                 cl_event *event);
+static gboolean backward_barrier (GannClBarrier *barrier,
+                                  cl_event *event);
+
+G_DEFINE_TYPE_WITH_CODE (GannOutputLayer, gann_output_layer,
+                         GANN_TYPE_LAYER,
+                         G_IMPLEMENT_INTERFACE (GANN_TYPE_CL_BARRIER,
+                                                cl_barrier_init));
 
 static void
 gann_output_layer_init (GannOutputLayer *self)
@@ -71,6 +79,27 @@ constructed (GObject *gobj)
                   NULL);
 
     G_OBJECT_CLASS (gann_output_layer_parent_class)->constructed (gobj);
+}
+
+static void
+cl_barrier_init (GannClBarrierInterface *itf)
+{
+    itf->forward_barrier = forward_barrier;
+    itf->backward_barrier = backward_barrier;
+}
+
+static gboolean
+forward_barrier (GannClBarrier *barrier,
+                 cl_event *event)
+{
+    return FALSE;
+}
+
+static gboolean
+backward_barrier (GannClBarrier *barrier,
+                  cl_event *event)
+{
+    return FALSE;
 }
 
 GannOutputLayer *

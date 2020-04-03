@@ -21,6 +21,7 @@
 
 #include "gann-dense-layer.h"
 #include "gann-network.h"
+#include "gann-cl-barrier.h"
 
 #include "core/core.h"
 
@@ -29,9 +30,17 @@ struct _GannDenseLayer
     GannLayer parent_instance;
 };
 
-G_DEFINE_TYPE (GannDenseLayer, gann_dense_layer, GANN_TYPE_LAYER);
-
 static void constructed (GObject *gobj);
+static void cl_barrier_init (GannClBarrierInterface *itf);
+static gboolean forward_barrier (GannClBarrier *barrier,
+                                 cl_event *event);
+static gboolean backward_barrier (GannClBarrier *barrier,
+                                  cl_event *event);
+
+G_DEFINE_TYPE_WITH_CODE (GannDenseLayer, gann_dense_layer,
+                         GANN_TYPE_LAYER,
+                         G_IMPLEMENT_INTERFACE (GANN_TYPE_CL_BARRIER,
+                                                cl_barrier_init));
 
 static void
 gann_dense_layer_init (GannDenseLayer *self)
@@ -62,6 +71,27 @@ constructed (GObject *gobj)
                              gann_layer_get_depth (layer),
                              gann_layer_get_activation (layer));
     gann_layer_set_core (layer, core);
+}
+
+static void
+cl_barrier_init (GannClBarrierInterface *itf)
+{
+    itf->forward_barrier = forward_barrier;
+    itf->backward_barrier = backward_barrier;
+}
+
+static gboolean
+forward_barrier (GannClBarrier *barrier,
+                 cl_event *event)
+{
+    return FALSE;
+}
+
+static gboolean
+backward_barrier (GannClBarrier *barrier,
+                  cl_event *event)
+{
+    return FALSE;
 }
 
 GannDenseLayer *
