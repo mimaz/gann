@@ -30,10 +30,6 @@
 #include "gann-network.h"
 #include "gann-barrier.h"
 
-#include "core/layer.h"
-#include "core/network.h"
-#include "core/context.h"
-
 typedef struct {
     GannNetwork *network;
     GannContext *context;
@@ -47,14 +43,13 @@ typedef struct {
     gboolean compiled;
     GannBarrier *forward_barrier;
     GannBarrier *backward_barrier;
+	GannBuffer *value_buffer;
+	GannBuffer *gradient_buffer;
 
-    gfloat *value_buff;
     guint8 *bytes_buff;
 
     GSList *prev_list;
     GSList *next_list;
-
-    struct layer *l;
 } GannLayerPrivate;
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (GannLayer, gann_layer, G_TYPE_OBJECT);
@@ -215,7 +210,6 @@ dispose (GObject *gobj)
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
 
     g_clear_weak_pointer (&p->network);
-    g_clear_pointer (&p->value_buff, g_free);
     g_clear_pointer (&p->bytes_buff, g_free);
 
     G_OBJECT_CLASS (gann_layer_parent_class)->dispose (gobj);
@@ -229,6 +223,8 @@ finalize (GObject *gobj)
 
     g_clear_object (&p->forward_barrier);
     g_clear_object (&p->backward_barrier);
+	g_clear_object (&p->value_buffer);
+	g_clear_object (&p->gradient_buffer);
 
     G_OBJECT_CLASS (gann_layer_parent_class)->finalize (gobj);
 }
@@ -241,11 +237,14 @@ constructed (GObject *gobj)
 
     g_assert_nonnull (p->network);
 
-    p->value_buff = NULL;
     p->bytes_buff = NULL;
     p->next_list = NULL;
     p->prev_list = NULL;
 
+	g_object_set (self,
+				  "context", gann_network_get_context (p->network),
+				  NULL);
+	g_message ("ctx %p", p->context);
 	gann_network_attach_layer (p->network, self);
 
     G_OBJECT_CLASS (gann_layer_parent_class)->constructed (gobj);
@@ -375,8 +374,6 @@ get_property (GObject *gobj,
 static void
 forward (GannLayer *self)
 {
-    g_message ("forward %s", g_type_name (G_OBJECT_TYPE (self)));
-    layer_forward (gann_layer_get_core (self));
 }
 
 static void
@@ -389,23 +386,44 @@ compile (GannLayer *self)
 {
 	GannLayerPrivate *p = gann_layer_get_instance_private (self);
 
-	p->size = p->width * p->height * p->depth;
+	g_assert (p->width > 0);
+	g_assert (p->height > 0);
+	g_assert (p->depth > 0);
 
-	g_message ("size: %d %d", p->size, p->depth);
-	
-    layer_compile (gann_layer_get_core (self));
+	p->size = p->width * p->height * p->depth;
+	g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SIZE]);
 }
 
 static GannBuffer *
-value_buffer (GannLayer *self G_GNUC_UNUSED)
+value_buffer (GannLayer *self)
 {
-    return NULL;
+	GannLayerPrivate *p = gann_layer_get_instance_private (self);
+
+	if (p->value_buffer == NULL) {
+		p->value_buffer = gann_buffer_new (p->context,
+										   G_TYPE_FLOAT,
+										   p->height,
+										   p->width,
+										   p->depth);
+	}
+
+    return p->value_buffer;
 }
 
 static GannBuffer *
 gradient_buffer (GannLayer *self G_GNUC_UNUSED)
 {
-    return NULL;
+	GannLayerPrivate *p = gann_layer_get_instance_private (self);
+
+	if (p->gradient_buffer == NULL) {
+		p->gradient_buffer = gann_buffer_new (p->context,
+											  G_TYPE_FLOAT,
+											  p->height,
+											  p->width,
+											  p->depth);
+	}
+
+	return p->gradient_buffer;
 }
 
 /**
@@ -449,14 +467,13 @@ gann_layer_append (GannLayer *self,
 {
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
 
-    g_message ("append %p %p", self, next);
-    if (g_slist_find (p->next_list, next) == NULL
-        && self != next) {
+	g_assert_nonnull (next);
+	g_assert (self != next);
+
+    if (g_slist_find (p->next_list, next) == NULL) {
         p->next_list = g_slist_prepend (p->next_list, next);
-        layer_append (gann_layer_get_core (self),
-                      gann_layer_get_core (next));
         gann_layer_prepend (next, self);
-    }else g_message ("pass");
+    }
 
     return self;
 }
@@ -475,13 +492,11 @@ gann_layer_prepend (GannLayer *self,
 {
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
 
-    if (g_slist_find (p->prev_list, prev) == NULL
-        && self != prev) {
-        g_message ("prepend %p %p", self, prev);
-        g_assert (prev != NULL);
+	g_assert_nonnull (prev);
+	g_assert (self != prev);
+
+    if (g_slist_find (p->prev_list, prev) == NULL) {
         p->prev_list = g_slist_prepend (p->prev_list, prev);
-        layer_prepend (gann_layer_get_core (self),
-                       gann_layer_get_core (prev));
         gann_layer_append (prev, self);
     }
 
@@ -548,7 +563,6 @@ gann_layer_prev_layer (GannLayer *self)
 
     g_assert (g_slist_length (p->prev_list) < 2);
 
-    g_message ("prev_list %p %p", self, p->prev_list);
     if (p->prev_list != NULL)
         return p->prev_list->data;
 
@@ -587,21 +601,12 @@ const gfloat *
 gann_layer_get_data (GannLayer *self,
                      gsize *size)
 {
-    GannLayerPrivate *p = gann_layer_get_instance_private (self);
+	GannBuffer *buff;
 
-	g_message ("get datax");
-    if (p->value_buff == NULL) {
-        p->value_buff = g_new (gfloat, p->l->size);
-    }
+	buff = gann_layer_value_buffer (self);
+	g_assert_nonnull (buff);
 
-    /* layer_load_value (p->l, p->value_buff, 0, p->l->size); */
-
-    if (size != NULL) {
-        *size = p->size;
-    }
-	g_message ("get datax %lu\n", *size);
-
-    return p->value_buff;
+	return gann_buffer_read (buff, 0, -1, size);
 }
 
 /**
@@ -615,16 +620,17 @@ gann_layer_get_data_bytes (GannLayer *self,
                            gsize *size)
 {
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
+	const gfloat *values;
     gint i;
 
-    gann_layer_get_data (self, size);
+    values = gann_layer_get_data (self, size);
 
     if (p->bytes_buff == NULL) {
-        p->bytes_buff = g_new (guint8, p->l->size);
+        p->bytes_buff = g_new (guint8, p->size);
     }
 
     for (i = 0; i < *size; i++) {
-        p->bytes_buff[i] = p->value_buff[i] * 255.0f;
+        p->bytes_buff[i] = values[i] * 255.0f;
     }
 
     return p->bytes_buff;
@@ -825,28 +831,6 @@ gann_layer_get_backward_barrier (GannLayer *self)
     return p->backward_barrier;
 }
 
-/**
- * gann_layer_set_core: (skip)
- */
-void
-gann_layer_set_core (GannLayer *self,
-                     struct layer *core)
-{
-    GannLayerPrivate *p = gann_layer_get_instance_private (self);
-    g_assert (p->l == NULL);
-    p->l = core;
-}
-
-/**
- * gann_layer_get_core: (skip)
- */
-struct layer *
-gann_layer_get_core (GannLayer *self)
-{
-    GannLayerPrivate *p = gann_layer_get_instance_private (self);
-    return p->l;
-}
-
 /***************
  * PRIVATE API *
  ***************/
@@ -854,11 +838,7 @@ gann_layer_get_core (GannLayer *self)
 void
 gann_layer_clear_gradient (GannLayer *self)
 {
-    struct layer *lay = gann_layer_get_core (self);
-
-    if (lay->gradient_mem != 0) {
-        context_clear_buffer (lay->net->ctx, lay->gradient_mem, lay->size, NULL);
-    }
+	g_warning ("clear gradient not implemented");
 }
 
 void

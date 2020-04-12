@@ -23,8 +23,6 @@
 #include "gann-network.h"
 #include "gann-cl-barrier.h"
 
-#include "core/core.h"
-
 struct _GannDenseLayer
 {
     GannLayer parent_instance;
@@ -60,17 +58,9 @@ constructed (GObject *gobj)
 {
     GannLayer *layer;
     GannNetwork *network;
-    struct layer *core;
 
     layer = GANN_LAYER (gobj);
     network = gann_layer_get_network (layer);
-
-    core = layer_make_dense (gann_network_get_core (network),
-                             gann_layer_get_width (layer),
-                             gann_layer_get_height (layer),
-                             gann_layer_get_depth (layer),
-                             gann_layer_get_activation (layer));
-    gann_layer_set_core (layer, core);
 }
 
 static void

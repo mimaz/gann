@@ -22,8 +22,6 @@
 #include "gann-conv-layer.h"
 #include "gann-network.h"
 
-#include "core/core.h"
-
 struct _GannConvLayer
 {
     GannLayer parent_instance;
@@ -169,25 +167,6 @@ finalize (GObject *gobj)
 static void
 constructed (GObject *gobj)
 {
-    GannLayer *layer;
-    GannConvLayer *self;
-    GannNetwork *network;
-    struct layer *core;
-
-    g_message ("constructed conv %p", gobj);
-
-    layer = GANN_LAYER (gobj);
-    self = GANN_CONV_LAYER (gobj);
-    network = gann_layer_get_network (layer);
-
-    core = layer_make_conv (gann_network_get_core (network),
-                            self->kernel_width,
-                            self->kernel_stride,
-                            gann_layer_get_depth (layer),
-                            gann_layer_get_activation (layer));
-
-    gann_layer_set_core (layer, core);
-
     G_OBJECT_CLASS (gann_conv_layer_parent_class)->constructed (gobj);
 }
 

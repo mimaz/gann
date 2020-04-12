@@ -147,14 +147,21 @@ constructed (GObject *gobj)
 {
     GannBuffer *self = GANN_BUFFER (gobj);
     GannBufferPrivate *p = gann_buffer_get_instance_private (self);
+	cl_int err;
 
     if (p->element_type == G_TYPE_FLOAT) {
         p->element_size = sizeof (gfloat);
     } else {
-        g_error ("invalid buffer element type");
+        g_error ("not supported element type");
     }
 
     p->size = p->height * p->width * p->depth;
+	p->data = g_new (gfloat, p->size);
+	p->mem = clCreateBuffer (gann_context_cl_context (p->context),
+							 CL_MEM_READ_WRITE,
+							 p->size * p->element_size,
+							 NULL, &err);
+	g_assert (err == 0);
 
     g_object_notify_by_pspec (gobj, props[PROP_SIZE]);
     g_object_notify_by_pspec (gobj, props[PROP_ELEMENT_SIZE]);
@@ -168,6 +175,7 @@ finalize (GObject *gobj)
     GannBuffer *self = GANN_BUFFER (gobj);
     GannBufferPrivate *p = gann_buffer_get_instance_private (self);
 
+	g_clear_pointer (&p->data, g_free);
     g_clear_pointer (&p->event, clReleaseEvent);
     g_clear_object (&p->context);
 
@@ -334,7 +342,7 @@ GannBuffer *
 gann_buffer_write (GannBuffer *self,
                    gint offset,
                    const gfloat *data,
-                   gsize size)
+                   gint size)
 {
     GannBufferPrivate *p;
     const cl_event *evlist;
@@ -368,6 +376,13 @@ gann_buffer_read (GannBuffer *self,
     p = gann_buffer_get_instance_private (self);
     evlist = p->evcount > 0 ? p->evlist : NULL;
 
+	if (count < 0) {
+		count = p->size - offset;
+	}
+
+	g_assert (offset < p->size);
+	g_assert (offset + count <= p->size);
+
     clEnqueueReadBuffer (gann_context_cl_queue (p->context),
                          p->mem,
                          CL_TRUE,
@@ -375,6 +390,8 @@ gann_buffer_read (GannBuffer *self,
                          count * p->element_size,
                          p->data,
                          p->evcount, evlist, &p->event);
+
+	*size = count;
 
     return p->data;
 }

@@ -115,8 +115,5 @@ GannBarrier *gann_layer_get_forward_barrier (GannLayer *self);
 void gann_layer_set_backward_barrier (GannLayer *self,
                                       GannBarrier *barrier);
 GannBarrier *gann_layer_get_backward_barrier (GannLayer *self);
-void gann_layer_set_core (GannLayer *self,
-                          struct layer *core);
-struct layer *gann_layer_get_core (GannLayer *self);
 
 G_END_DECLS

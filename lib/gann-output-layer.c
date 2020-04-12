@@ -23,15 +23,16 @@
 #include "gann-network.h"
 #include "gann-cl-barrier.h"
 
-#include "core/layer.h"
-
 struct _GannOutputLayer
 {
     GannLayer parent_instance;
+	GannBuffer *truth_buffer;
 };
 
 static void constructed (GObject *gobj);
 static void compile (GannLayer *layer);
+static void forward (GannLayer *layer);
+static GannBuffer *value_buffer (GannLayer *self);
 static void cl_barrier_init (GannClBarrierInterface *itf);
 static gboolean forward_barrier (GannClBarrier *barrier,
                                  cl_event *event);
@@ -56,38 +57,58 @@ gann_output_layer_class_init (GannOutputLayerClass *cls)
 
     gcls->constructed = constructed;
 	lcls->compile = compile;
+	lcls->forward = forward;
+	lcls->value_buffer = value_buffer;
 }
 
 static void
 constructed (GObject *gobj)
 {
-    GannLayer *layer;
-    GannNetwork *network;
-    struct layer *core;
-
-    layer = GANN_LAYER (gobj);
-    network = gann_layer_get_network (layer);
-
-    g_assert (gann_layer_get_width (layer) == 0);
-    g_assert (gann_layer_get_height (layer) == 0);
-    g_assert (gann_layer_get_depth (layer) == 0);
-
-    core = layer_make_output (gann_network_get_core (network));
-    gann_layer_set_core (layer, core);
-
-    g_object_set (layer,
-                  "width", core->width,
-                  "height", core->height,
-                  "depth", core->depth,
-                  NULL);
-
     G_OBJECT_CLASS (gann_output_layer_parent_class)->constructed (gobj);
 }
 
 static void
 compile (GannLayer *layer)
 {
+	GannOutputLayer *self;
+	GannLayer *prev;
+
+	self = GANN_OUTPUT_LAYER (layer);
+	prev = gann_layer_prev_layer (layer);
+
+	g_object_set (layer,
+				  "width", gann_layer_get_width (prev),
+				  "height", gann_layer_get_height (prev),
+				  "depth", gann_layer_get_depth (prev),
+				  NULL);
+
+	self->truth_buffer = gann_buffer_new (gann_layer_get_context (layer),
+										  G_TYPE_FLOAT,
+										  gann_layer_get_height (layer),
+										  gann_layer_get_width (layer),
+										  gann_layer_get_depth (layer));
+
 	GANN_LAYER_CLASS (gann_output_layer_parent_class)->compile (layer);
+}
+
+static void
+forward (GannLayer *layer)
+{
+	GannLayer *prev;
+
+	prev = gann_layer_prev_layer (layer);
+
+	GANN_LAYER_CLASS (gann_output_layer_parent_class)->forward (layer);
+}
+
+static GannBuffer *
+value_buffer (GannLayer *layer)
+{
+	GannLayer *prev;
+
+	prev = gann_layer_prev_layer (layer);
+
+	return gann_layer_value_buffer (prev);
 }
 
 static void
@@ -124,6 +145,6 @@ gann_output_layer_set_truth (GannOutputLayer *self,
                              const gfloat *data,
                              gsize datasize)
 {
-    layer_output_set_truth (gann_layer_get_core (GANN_LAYER (self)),
-                            data, datasize);
+	gann_buffer_write (self->truth_buffer,
+					   0, data, datasize);
 }

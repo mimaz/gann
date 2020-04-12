@@ -53,7 +53,7 @@ void gann_buffer_clear (GannBuffer *self);
 GannBuffer *gann_buffer_write (GannBuffer *self,
                                gint offset,
                                const gfloat *data,
-                               gsize size);
+                               gint size);
 const gfloat *gann_buffer_read (GannBuffer *self,
                                 gint offset,
                                 gint count,

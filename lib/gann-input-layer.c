@@ -23,16 +23,9 @@
 #include "gann-network.h"
 #include "gann-cl-barrier.h"
 
-#include "core/core.h"
-
 struct _GannInputLayer
 {
     GObject parent_instance;
-    
-    GannBuffer *value_buffer;
-    GannBuffer *gradient_buffer;
-
-    gfloat *data_v;
 };
 
 static void dispose (GObject *gobj);
@@ -41,8 +34,6 @@ static void finalize (GObject *gobj);
 static void forward (GannLayer *layer);
 static void backward (GannLayer *layer);
 static void compile (GannLayer *layer);
-static GannBuffer *value_buffer (GannLayer *layer);
-static GannBuffer *gradient_buffer (GannLayer *layer);
 static void cl_barrier_init (GannClBarrierInterface *itf);
 static gboolean forward_barrier (GannClBarrier *barrier,
                                  cl_event *event);
@@ -72,8 +63,6 @@ gann_input_layer_class_init (GannInputLayerClass *cls)
     lcls->forward = forward;
     lcls->backward = backward;
     lcls->compile = compile;
-    lcls->value_buffer = value_buffer;
-    lcls->gradient_buffer = gradient_buffer;
 }
 
 static void
@@ -86,46 +75,18 @@ dispose (GObject *gobj)
 static void
 constructed (GObject *gobj)
 {
-    GannNetwork *network;
-    GannLayer *layer;
-    gint width, height, depth;
-    struct layer *core;
-
-    layer = GANN_LAYER (gobj);
-    network = gann_layer_get_network (layer);
-
-    width = gann_layer_get_width (layer);
-    height = gann_layer_get_height (layer);
-    depth = gann_layer_get_depth (layer);
-
-    core = layer_make_input (gann_network_get_core (network),
-                             width, height, depth);
-    gann_layer_set_core (layer, core);
-
     G_OBJECT_CLASS (gann_input_layer_parent_class)->constructed (gobj);
 }
 
 static void
 finalize (GObject *gobj)
 {
-    GannInputLayer *self = GANN_INPUT_LAYER (gobj);
-
-    g_clear_object (&self->value_buffer);
-    g_clear_object (&self->gradient_buffer);
-
     G_OBJECT_CLASS (gann_input_layer_parent_class)->finalize (gobj);
 }
 
 static void
 forward (GannLayer *layer)
 {
-    GannInputLayer *self;
-
-    self = GANN_INPUT_LAYER (layer);
-
-    gann_buffer_write (self->value_buffer,
-                       0, self->data_v, -1);
-
     GANN_LAYER_CLASS (gann_input_layer_parent_class)->forward (layer);
 }
 
@@ -138,18 +99,6 @@ static void
 compile (GannLayer *layer)
 {
 	GANN_LAYER_CLASS (gann_input_layer_parent_class)->compile (layer);
-}
-
-static GannBuffer *
-value_buffer (GannLayer *layer)
-{
-    return GANN_INPUT_LAYER (layer)->value_buffer;
-}
-
-static GannBuffer *
-gradient_buffer (GannLayer *layer)
-{
-    return GANN_INPUT_LAYER (layer)->gradient_buffer;
 }
 
 static void
@@ -173,6 +122,11 @@ backward_barrier (GannClBarrier *barrier,
     return FALSE;
 }
 
+/**
+ * gann_input_layer_new:
+ *
+ * returns: (transfer full): New input layer instance
+ */
 GannInputLayer *
 gann_input_layer_new (GannNetwork *network,
                       gint width,
@@ -187,41 +141,42 @@ gann_input_layer_new (GannNetwork *network,
                          NULL);
 }
 
+/**
+ * gann_input_layer_set_data:
+ * @data: (array length=size): float array
+ */
 void
 gann_input_layer_set_data (GannInputLayer *self,
                            const gfloat *data,
-                           gsize datasize)
+                           gint size)
 {
-    gint width, height, depth;
     GannLayer *layer;
+	GannBuffer *buff;
 
     layer = GANN_LAYER (self);
-    width = gann_layer_get_width (layer);
-    height = gann_layer_get_height (layer);
-    depth = gann_layer_get_depth (layer);
+	buff = gann_layer_value_buffer (layer);
+    g_assert (size == gann_layer_get_size (layer));
 
-    g_assert (datasize == width * height * depth);
-
-    if (self->data_v == NULL) {
-        self->data_v = g_new (gfloat, datasize);
-    }
-
-    memcpy (self->data_v, data, datasize * sizeof (gfloat));
+	gann_buffer_write (buff, 0, data, size);
 }
 
+/**
+ * gann_input_layer_set_data_bytes:
+ * @data: (array length=size): byte array
+ */
 void
 gann_input_layer_set_data_bytes (GannInputLayer *self,
                                  const guint8 *data,
-                                 gsize datasize)
+                                 gint size)
 {
     gfloat *floats;
     gsize i;
 
-    floats = g_newa (gfloat, datasize);
+    floats = g_newa (gfloat, size);
 
-    for (i = 0; i < datasize; i++) {
+    for (i = 0; i < size; i++) {
         floats[i] = data[i] / 255.0f;
     }
 
-    gann_input_layer_set_data (self, floats, datasize);
+    gann_input_layer_set_data (self, floats, size);
 }

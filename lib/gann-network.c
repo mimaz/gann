@@ -373,7 +373,6 @@ gann_network_create_conv (GannNetwork *self,
 void
 gann_network_forward (GannNetwork *self)
 {
-	return;
     GannNetworkPrivate *p;
     GSList *list;
 
@@ -384,13 +383,10 @@ gann_network_forward (GannNetwork *self)
 
     /* gann_network_clear_propagated (self); */
 
-    g_message ("forward list %p", list);
     while (list != NULL) {
         gann_layer_forward (list->data);
         list = list->next;
     }
-
-    /* network_forward (p->net); */
 }
 
 /**

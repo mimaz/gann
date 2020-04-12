@@ -55,6 +55,7 @@ public void dense_test () throws Error
         int p = (int) rand.boolean ();
         int q = (int) rand.boolean ();
         int e = (int) (p == 0 && q == 0);
+		p = 1;
 
         float[] indata = { p, };
         float[] outdata = { e, };
@@ -69,7 +70,7 @@ public void dense_test () throws Error
          * Read calculated value
          */
         var r = output.get_data ()[0];
-		break;
+		message ("r: %f %f", p, r);
 
         /*
          * Set truth value and run backpropagation

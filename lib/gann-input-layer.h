@@ -30,30 +30,17 @@ G_BEGIN_DECLS
 G_DECLARE_FINAL_TYPE (GannInputLayer, gann_input_layer,
                       GANN, INPUT_LAYER, GannLayer);
 
-/**
- * gann_input_layer_new:
- *
- * returns: (transfer full): New input layer instance
- */
 GannInputLayer *gann_input_layer_new (GannNetwork *network,
                                       gint width,
                                       gint height,
                                       gint depth);
 
-/**
- * gann_input_layer_set_data:
- * @data: (array length=datasize): float array
- */
 void gann_input_layer_set_data (GannInputLayer *self,
                                 const gfloat *data,
-                                gsize datasize);
+                                gint size);
 
-/**
- * gann_input_layer_set_data_bytes:
- * @data: (array length=datasize): byte array
- */
 void gann_input_layer_set_data_bytes (GannInputLayer *self,
                                       const guint8 *data,
-                                      gsize datasize);
+                                      gint size);
 
 G_END_DECLS
