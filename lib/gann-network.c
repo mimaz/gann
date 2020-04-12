@@ -373,6 +373,7 @@ gann_network_create_conv (GannNetwork *self,
 void
 gann_network_forward (GannNetwork *self)
 {
+	return;
     GannNetworkPrivate *p;
     GSList *list;
 
@@ -400,6 +401,7 @@ gann_network_forward (GannNetwork *self)
 void
 gann_network_backward (GannNetwork *self)
 {
+	return;
     GannNetworkPrivate *p = gann_network_get_instance_private (self);
 
     gann_network_compile (self);
@@ -511,7 +513,7 @@ gann_network_attach_layer (GannNetwork *self,
 {
     GannNetworkPrivate *p = gann_network_get_instance_private (self);
 
-    g_message ("attach layer");
+    g_message ("attach layer %p", layer);
     g_assert (g_ptr_array_find (p->layer_arr, layer, NULL) == FALSE);
     g_ptr_array_insert (p->layer_arr, -1, layer);
 

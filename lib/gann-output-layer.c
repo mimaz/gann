@@ -31,6 +31,7 @@ struct _GannOutputLayer
 };
 
 static void constructed (GObject *gobj);
+static void compile (GannLayer *layer);
 static void cl_barrier_init (GannClBarrierInterface *itf);
 static gboolean forward_barrier (GannClBarrier *barrier,
                                  cl_event *event);
@@ -51,8 +52,10 @@ static void
 gann_output_layer_class_init (GannOutputLayerClass *cls)
 {
     GObjectClass *gcls = G_OBJECT_CLASS (cls);
+	GannLayerClass *lcls = GANN_LAYER_CLASS (cls);
 
     gcls->constructed = constructed;
+	lcls->compile = compile;
 }
 
 static void
@@ -79,6 +82,12 @@ constructed (GObject *gobj)
                   NULL);
 
     G_OBJECT_CLASS (gann_output_layer_parent_class)->constructed (gobj);
+}
+
+static void
+compile (GannLayer *layer)
+{
+	GANN_LAYER_CLASS (gann_output_layer_parent_class)->compile (layer);
 }
 
 static void

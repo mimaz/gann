@@ -137,6 +137,7 @@ backward (GannLayer *layer)
 static void
 compile (GannLayer *layer)
 {
+	GANN_LAYER_CLASS (gann_input_layer_parent_class)->compile (layer);
 }
 
 static GannBuffer *

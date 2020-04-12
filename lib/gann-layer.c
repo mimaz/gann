@@ -41,6 +41,7 @@ typedef struct {
     gint width;
     gint height;
     gint depth;
+	gint size;
     gchar *activation;
     gboolean propagated;
     gboolean compiled;
@@ -66,6 +67,7 @@ enum
     PROP_WIDTH,
     PROP_HEIGHT,
     PROP_DEPTH,
+	PROP_SIZE,
     PROP_ACTIVATION,
     PROP_PROPAGATED,
     PROP_COMPILED,
@@ -154,6 +156,14 @@ gann_layer_class_init (GannLayerClass *cls)
                           G_PARAM_CONSTRUCT |
                           G_PARAM_STATIC_STRINGS);
 
+	props[PROP_SIZE] = 
+		g_param_spec_int ("size",
+						  "Size",
+						  "Layer size",
+						  0, G_MAXINT32, 0,
+						  G_PARAM_READWRITE |
+						  G_PARAM_STATIC_STRINGS);
+
     props[PROP_ACTIVATION] =
         g_param_spec_string ("activation",
                              "Activation",
@@ -230,12 +240,13 @@ constructed (GObject *gobj)
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
 
     g_assert_nonnull (p->network);
-    gann_network_attach_layer (p->network, self);
 
     p->value_buff = NULL;
     p->bytes_buff = NULL;
     p->next_list = NULL;
     p->prev_list = NULL;
+
+	gann_network_attach_layer (p->network, self);
 
     G_OBJECT_CLASS (gann_layer_parent_class)->constructed (gobj);
 }
@@ -270,6 +281,10 @@ set_property (GObject *gobj,
     case PROP_DEPTH:
         p->depth = g_value_get_int (value);
         break;
+
+	case PROP_SIZE:
+		p->size = g_value_get_int (value);
+		break;
 
     case PROP_ACTIVATION:
         g_clear_pointer (&p->activation, g_free);
@@ -328,6 +343,10 @@ get_property (GObject *gobj,
         g_value_set_int (value, p->depth);
         break;
 
+	case PROP_SIZE:
+		g_value_set_int (value, p->size);
+		break;
+
     case PROP_ACTIVATION:
         g_value_set_string (value, p->activation);
         break;
@@ -368,7 +387,12 @@ backward (GannLayer *self)
 static void
 compile (GannLayer *self)
 {
-    g_message ("compile %p %p", self, gann_layer_get_core (self));
+	GannLayerPrivate *p = gann_layer_get_instance_private (self);
+
+	p->size = p->width * p->height * p->depth;
+
+	g_message ("size: %d %d", p->size, p->depth);
+	
     layer_compile (gann_layer_get_core (self));
 }
 
@@ -565,15 +589,17 @@ gann_layer_get_data (GannLayer *self,
 {
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
 
+	g_message ("get datax");
     if (p->value_buff == NULL) {
         p->value_buff = g_new (gfloat, p->l->size);
     }
 
-    layer_load_value (p->l, p->value_buff, 0, p->l->size);
+    /* layer_load_value (p->l, p->value_buff, 0, p->l->size); */
 
     if (size != NULL) {
-        *size = p->l->size;
+        *size = p->size;
     }
+	g_message ("get datax %lu\n", *size);
 
     return p->value_buff;
 }
@@ -662,6 +688,18 @@ gann_layer_get_depth (GannLayer *self)
 {
     GannLayerPrivate *p = gann_layer_get_instance_private (self);
     return p->depth;
+}
+
+/**
+ * gann_layer_get_size:
+ *
+ * returns: layer's total size (width x height x depth)
+ */
+gint
+gann_layer_get_size (GannLayer *self)
+{
+	GannLayerPrivate *p = gann_layer_get_instance_private (self);
+	return p->size;
 }
 
 /**

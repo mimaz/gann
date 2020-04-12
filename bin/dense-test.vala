@@ -33,17 +33,19 @@ public void dense_test () throws Error
      * numeric arguments are tensor size width x height x depth
      * available activations: relu, leaky, sigmoid, softplus, linear
      */
-    var input = network.create_input (1, 1, 2);
-    network.create_dense (1, 1, 64, "relu");
-    network.create_dense (1, 1, 1, "linear");
+    var input = network.create_input (1, 1, 1);
+    // network.create_dense (1, 1, 64, "relu");
+    // network.create_dense (1, 1, 1, "linear");
     var output = network.create_output ();
+
+	network.compile ();
 
     /*
      * Rand instance used for generating test data
      */
     var rand = new Rand.with_seed (0);
 
-    for (var i = 0; i < 1000000; i++) {
+    for (var i = 0; i < 1; i++) {
         /*
          * For example purpose here we randomize two bits 
          * and make simple logical operation to calculate expected
@@ -54,7 +56,7 @@ public void dense_test () throws Error
         int q = (int) rand.boolean ();
         int e = (int) (p == 0 && q == 0);
 
-        float[] indata = { p, q, };
+        float[] indata = { p, };
         float[] outdata = { e, };
 
         /*
@@ -67,6 +69,7 @@ public void dense_test () throws Error
          * Read calculated value
          */
         var r = output.get_data ()[0];
+		break;
 
         /*
          * Set truth value and run backpropagation

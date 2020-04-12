@@ -101,6 +101,7 @@ GannContext *gann_layer_get_context (GannLayer *self);
 gint gann_layer_get_width (GannLayer *self);
 gint gann_layer_get_height (GannLayer *self);
 gint gann_layer_get_depth (GannLayer *self);
+gint gann_layer_get_size (GannLayer *self);
 const gchar *gann_layer_get_activation (GannLayer *self);
 void gann_layer_set_propagated (GannLayer *self,
                                 gboolean propagated);
